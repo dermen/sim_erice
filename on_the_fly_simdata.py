@@ -26,8 +26,8 @@ def get_SIM(dxtbx_det, dxtbx_beam, dxtbx_cryst, Fcalc_pdb=None):
 
     # mosaic block size
     crystal.Ncells_abc = 10,10,10  # will be update by GUI
-    crystal.n_mos_domains = 1
-    crystal.mos_spread_deg = 0
+    crystal.n_mos_domains = 10
+    crystal.mos_spread_deg = 1
 
     if Fcalc_pdb is not None:
         miller_data = utils.get_complex_fcalc_from_pdb(Fcalc_pdb,
@@ -108,10 +108,11 @@ def run_simdata(SIM, pfs, ucell_p, ncells_p, rot_p, spectrum=None, eta_p=None, G
             >> rotated_Umat = M*Umat
             >> dxtbx_cryst.set_U(rotated_Umat)
     :param spectrum: spectrum object list of 2-tuples. each 2-tuple is (wavelength, intensity)
-    :param eta_p: don't use yet
+    :param eta_p: float value of rotational mosaicity parameter eta
     :param G: scale factor for bragg peaks (e.g. total crystal volume)
     :return: flex array of simulated pixel values (same length as len(lfs) / 3)
     """
+
 
     if spectrum is not None:
         SIM.beam.spectrum = spectrum
@@ -122,10 +123,11 @@ def run_simdata(SIM, pfs, ucell_p, ncells_p, rot_p, spectrum=None, eta_p=None, G
     SIM.D.Bmatrix = Bmatrix
 
     if eta_p is not None:
-        raise NotImplementedError()
         # NOTE for eta_p we need to also update how we create the SIM instance
         # see hopper_utils for examples (see methods "SimulatorFromExperiment" and "model")
-        #SIM.update_umats_for_refinement(eta_p)
+        # FIXME not sure this is right yet
+        SIM.update_umats_for_refinement(eta_p)
+        SIM.crystal.mos_spread_deg = eta_p
 
     # Mosaic block
     #    diffuse_params_lookup = {}
@@ -150,6 +152,7 @@ def run_simdata(SIM, pfs, ucell_p, ncells_p, rot_p, spectrum=None, eta_p=None, G
     #        else:
     #            SIM.D.diffuse_sigma = tuple(diff_vals)
 
+    SIM.D.raw_pixels_roi *= 0
 
     ## update parameters:
     # TODO: if not refining Umat, assert these are 0 , and dont set them here
@@ -159,31 +162,9 @@ def run_simdata(SIM, pfs, ucell_p, ncells_p, rot_p, spectrum=None, eta_p=None, G
     SIM.D.set_value(2, rotZ)
 
     npix = int(len(pfs)/3)
-    # zero out the output container before simulating
-    SIM.D.raw_pixels_roi *= 0
     SIM.D.add_diffBragg_spots(pfs)
 
     pix = G*SIM.D.raw_pixels_roi[:npix]
 
     return pix
 
-
-if __name__ == "__main__":
-
-    from simtbx.nanoBragg.tst_nanoBragg_multipanel import beam, whole_det, cryst
-    from simtbx.diffBragg import hopper_utils
-    import time
-
-    SIM = get_SIM(whole_det, beam, cryst, "4bs7.pdb")
-    fsize, ssize = whole_det[0].get_image_size()
-    img_sh = 1,ssize, fsize
-    pfs = hopper_utils.full_img_pfs(img_sh)
-    t = time.time()
-    pix = run_simdata(SIM, pfs, (79,79,38,90,90,90), (10,10,10), (0,0,0))
-    t = time.time()-t
-    fast = pfs[1::3].as_numpy_array()
-    slow = pfs[2::3].as_numpy_array()
-    pan = pfs[0::3].as_numpy_array()
-    img = np.zeros((1, ssize,fsize))
-    img[pan, slow, fast] = pix
-    from IPython import embed;embed()
