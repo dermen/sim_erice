@@ -247,61 +247,43 @@ Energy/Bandwidth= {energy} / {bw}; {Fhkl}""".format(
         self._generate_image_data()
         self._display()
 
+    def _set_new_value(self, dial, new_value):
+        self._VALUES[dial] = new_value
+        self._LABELS[dial] = sef._get_new_label_part(dial, new_value)
+        if dial in ["Energy", "Bandwidth"]:
+            self._update_spectrum()
+        elif dial == "ucell_scale":
+            self._update_ucell(new_value)
+        self._generate_image_data()
+        self._display()
+
     def _small_step_up(self, tkevent):
         _, this_max, this_step, _, _ = self.params[self.current_dial]
         this_value = self._VALUES[self.current_dial]
         new_value = this_value + this_step
         if new_value <= this_max:
-            self._VALUES[self.current_dial] = new_value
-            self._LABELS[self.current_dial] = self._get_new_label_part(self.current_dial, new_value)
-            if self.current_dial in ["Energy", "Bandwidth"]:
-                self._update_spectrum()
-            elif self.current_dial == "ucell_scale":
-                self._update_ucell(new_value)
-            self._generate_image_data()
-            self._display()
+            self._set_new_value(self.current_dial, new_value)
 
     def _big_step_up(self, tkevent):
         _, this_max, _, this_step, _ = self.params[self.current_dial]
         this_value = self._VALUES[self.current_dial]
         new_value = this_value + this_step
         if new_value <= this_max:
-            self._VALUES[self.current_dial] = new_value
-            self._LABELS[self.current_dial] = self._get_new_label_part(self.current_dial, new_value)
-            if self.current_dial in ["Energy", "Bandwidth"]:
-                self._update_spectrum()
-            elif self.current_dial == "ucell_scale":
-                self._update_ucell(new_value)
-            self._generate_image_data()
-            self._display()
+            self._set_new_value(self.current_dial, new_value)
 
     def _small_step_down(self, tkevent):
         this_min, _, this_step, _, _ = self.params[self.current_dial]
         this_value = self._VALUES[self.current_dial]
         new_value = this_value - this_step
         if new_value >= this_min:
-            self._VALUES[self.current_dial] = new_value
-            self._LABELS[self.current_dial] = self._get_new_label_part(self.current_dial, new_value)
-            if self.current_dial in ["Energy", "Bandwidth"]:
-                self._update_spectrum()
-            elif self.current_dial == "ucell_scale":
-                self._update_ucell(new_value)
-            self._generate_image_data()
-            self._display()
+            self._set_new_value(self.current_dial, new_value)
 
     def _big_step_down(self, tkevent):
         this_min, _, _, this_step, _ = self.params[self.current_dial]
         this_value = self._VALUES[self.current_dial]
         new_value = this_value - this_step
         if new_value >= this_min:
-            self._VALUES[self.current_dial] = new_value
-            self._LABELS[self.current_dial] = self._get_new_label_part(self.current_dial, new_value)
-            if self.current_dial in ["Energy", "Bandwidth"]:
-                self._update_spectrum()
-            elif self.current_dial == "ucell_scale":
-                self._update_ucell(new_value)
-            self._generate_image_data()
-            self._display()
+            self._set_new_value(self.current_dial, new_value)
 
     def _reset(self, _press=None):
         for dial in self.dial_names:
