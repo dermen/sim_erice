@@ -113,6 +113,12 @@ class SimView(tk.Frame):
         ucell = symmetry.unit_cell()
         fmat = matrix.sqr(ucell.fractionalization_matrix())
         cryst = Crystal(fmat, sg)
+        panel = whole_det[0]
+        s0 = beam.get_unit_s0()
+        fast = panel.get_fast_axis()
+        slow = panel.get_slow_axis()
+        offset_orig = (2, -24, -100.)
+        panel.set_frame(fast, slow, offset_orig)
         self.SIM = get_SIM(whole_det, beam, cryst, pdbfile)
         self.SIM_noSF = get_SIM(whole_det, beam, cryst)
         self.ucell = self.SIM.crystal.dxtbx_crystal.get_unit_cell().parameters()
