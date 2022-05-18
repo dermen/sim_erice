@@ -319,7 +319,7 @@ Energy/Bandwidth= {energy} / {bw}; {Fhkl}""".format(
 
     def _set_new_value(self, dial, new_value):
         self._VALUES[dial] = new_value
-        self._LABELS[dial] = sef._get_new_label_part(dial, new_value)
+        self._LABELS[dial] = self._get_new_label_part(dial, new_value)
         if dial in ["Energy", "Bandwidth"]:
             self._update_spectrum()
         elif dial == "ucell_scale":
