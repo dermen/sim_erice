@@ -131,7 +131,7 @@ class SimView(tk.Frame):
         """load params available only (don't pre-load images). Keys are filenames."""
         self._VALUES = {}
         self._LABELS = {}
-        for dial, (_, _, _, default) in params.items():
+        for dial, (_, _, _, _, default) in params.items():
             self._VALUES[dial] = default
             self._LABELS[dial] = self._get_new_label_part(dial, default)
 
@@ -218,9 +218,11 @@ Energy/Bandwidth= {energy} / {bw}; {Fhkl}""".format(
 
     def bind(self):
         """key bindings"""
-        self.master.bind_all("<Up>", self._next)  # next image
-        self.master.bind_all("<t>", self._reset)  # default image
-        self.master.bind_all("<Down>", self._prev)  # prev image
+        self.master.bind_all("<Up>", self._small_step_up)  # increase this parameter
+        self.master.bind_all("<Shift-Up>", self._big_step_up) # increase this parameter a lot
+        self.master.bind_all("<t>", self._reset)  # reset all params to default settings
+        self.master.bind_all("<Down>", self._small_step_down)  # decrease this parameter
+        self.master.bind_all("<Shift-Down>", self._big_step_down) # decrease this parameter a lot
         self.master.bind_all("<space>", self._new_pulse) # repeat the simulation with a new spectrum
         
         self.master.bind_all("<Left>", self._prev_dial)
@@ -245,8 +247,8 @@ Energy/Bandwidth= {energy} / {bw}; {Fhkl}""".format(
         self._generate_image_data()
         self._display()
 
-    def _next(self, tkevent):
-        _, this_max, this_step, _ = self.params[self.current_dial]
+    def _small_step_up(self, tkevent):
+        _, this_max, this_step, _, _ = self.params[self.current_dial]
         this_value = self._VALUES[self.current_dial]
         new_value = this_value + this_step
         if new_value <= this_max:
@@ -259,8 +261,36 @@ Energy/Bandwidth= {energy} / {bw}; {Fhkl}""".format(
             self._generate_image_data()
             self._display()
 
-    def _prev(self, tkevent):
-        this_min, _, this_step, _ = self.params[self.current_dial]
+    def _big_step_up(self, tkevent):
+        _, this_max, _, this_step, _ = self.params[self.current_dial]
+        this_value = self._VALUES[self.current_dial]
+        new_value = this_value + this_step
+        if new_value <= this_max:
+            self._VALUES[self.current_dial] = new_value
+            self._LABELS[self.current_dial] = self._get_new_label_part(self.current_dial, new_value)
+            if self.current_dial in ["Energy", "Bandwidth"]:
+                self._update_spectrum()
+            elif self.current_dial == "ucell_scale":
+                self._update_ucell(new_value)
+            self._generate_image_data()
+            self._display()
+
+    def _small_step_down(self, tkevent):
+        this_min, _, this_step, _, _ = self.params[self.current_dial]
+        this_value = self._VALUES[self.current_dial]
+        new_value = this_value - this_step
+        if new_value >= this_min:
+            self._VALUES[self.current_dial] = new_value
+            self._LABELS[self.current_dial] = self._get_new_label_part(self.current_dial, new_value)
+            if self.current_dial in ["Energy", "Bandwidth"]:
+                self._update_spectrum()
+            elif self.current_dial == "ucell_scale":
+                self._update_ucell(new_value)
+            self._generate_image_data()
+            self._display()
+
+    def _big_step_down(self, tkevent):
+        this_min, _, _, this_step, _ = self.params[self.current_dial]
         this_value = self._VALUES[self.current_dial]
         new_value = this_value - this_step
         if new_value >= this_min:
@@ -275,7 +305,7 @@ Energy/Bandwidth= {energy} / {bw}; {Fhkl}""".format(
 
     def _reset(self, _press=None):
         for dial in self.dial_names:
-            default_value = self.params[dial][3]
+            default_value = self.params[dial][4]
             self._VALUES[dial] = default_value
             self._LABELS[dial] = self._get_new_label_part(dial, default_value)
         self._generate_image_data()
@@ -293,17 +323,17 @@ if __name__ == '__main__':
             print("Could not load default model file. Please supply one on the command line.")
             exit()
 
-    # params stored as: [min, max, step, default]
+    # params stored as: [min, max, small_step, big_step, default]
     params = {
-        "MosDom":[6, 30, 2, 10],
-        "MosAngDeg":[0.0, 1.5, 0.3, 0.3],
-        "ucell_scale":[0.9, 1.1, 0.05, 1],
-        "Energy":[6720, 7180, 30, 6750],
-        "Bandwidth":[0, 6, 0.5, 3],
-        "RotX": [-0.5, 0.5, 0.01, 0],
-        "RotY": [-0.5, 0.5, 0.01, 0],
-        "RotZ": [-0.5, 0.5, 0.01, 0],
-        "Fhkl":[0, 1, 1, 1]} # binary switch
+        "MosDom":[6, 200, 2, 10, 10],
+        "MosAngDeg":[0.0, 1.5, 0.3, 1.0, 0.3001],
+        "ucell_scale":[0.9, 1.1, 0.05, 0.1, 1],
+        "Energy":[6720, 7180, 10, 30, 6750],
+        "Bandwidth":[0, 6, 0.1, 1, 3],
+        "RotX": [-180, 180, 0.01, 0.1, 0],
+        "RotY": [-180, 180, 0.01, 0.1, 0],
+        "RotZ": [-180, 180, 0.01, 0.1, 0],
+        "Fhkl":[0, 1, 1, 1, 1]} # binary switch
 
     root = tk.Tk()
     root.title("SimView")
