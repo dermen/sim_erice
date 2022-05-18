@@ -20,6 +20,7 @@ import os, math
 from matplotlib.backends.backend_tkagg import \
     FigureCanvasTkAgg, NavigationToolbar2Tk
 
+import libtbx.load_env
 from on_the_fly_simdata import run_simdata, get_SIM
 from simtbx.nanoBragg.tst_nanoBragg_multipanel import beam, whole_det
 from simtbx.diffBragg import hopper_utils
@@ -285,7 +286,12 @@ if __name__ == '__main__':
     if len(sys.argv) > 1:
         pdbfile = sys.argv[1]
     else:
-        pdbfile = "4bs7.pdb"
+        pdbfile = libtbx.env.find_in_repositories(
+            relative_path="simtbx/sim_view/data/4bs7.pdb",
+            test=os.path.isfile)
+        if not pdbfile:
+            print("Could not load default model file. Please supply one on the command line.")
+            exit()
 
     # params stored as: [min, max, step, default]
     params = {
