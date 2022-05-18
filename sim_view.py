@@ -217,13 +217,13 @@ Energy/Bandwidth= {energy} / {bw}; {Fhkl}""".format(
 
     def bind(self):
         """key bindings"""
-        self.master.bind_all("<Right>", self._next)  # next image
+        self.master.bind_all("<Up>", self._next)  # next image
         self.master.bind_all("<t>", self._reset)  # default image
-        self.master.bind_all("<Left>", self._prev)  # prev image
+        self.master.bind_all("<Down>", self._prev)  # prev image
         self.master.bind_all("<space>", self._new_pulse) # repeat the simulation with a new spectrum
         
-        self.master.bind_all("<Up>", self._prev_dial)
-        self.master.bind_all("<Down>", self._next_dial)
+        self.master.bind_all("<Left>", self._prev_dial)
+        self.master.bind_all("<Right>", self._next_dial)
 
     def _next_dial(self, tkevent):
         try:
