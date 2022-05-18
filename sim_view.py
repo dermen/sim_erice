@@ -15,7 +15,7 @@ import numpy as np
 import matplotlib as mpl
 mpl.use('TkAgg')
 import pylab as plt
-import os
+import os, math
 
 from matplotlib.backends.backend_tkagg import \
     FigureCanvasTkAgg, NavigationToolbar2Tk
@@ -140,7 +140,9 @@ class SimView(tk.Frame):
         SIM = self.SIM if self._VALUES["Fhkl"] else self.SIM_noSF
         pix = run_simdata(SIM, self.pfs, self.scaled_ucell,
             tuple([(x,x,x) for x in [self._VALUES["MosDom"]]][0]),
-            (self._VALUES["RotX"], self._VALUES["RotY"], self._VALUES["RotZ"]),
+            (self._VALUES["RotX"]*math.pi/180.,
+            self._VALUES["RotY"]*math.pi/180.,
+            self._VALUES["RotZ"]*math.pi/180.),
             spectrum=self.spectrum,
             eta_p=self._VALUES["MosAngDeg"])
         # t = time.time()-t
