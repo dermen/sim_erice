@@ -383,7 +383,7 @@ if __name__ == '__main__':
         pdbfile = sys.argv[1]
     else:
         pdbfile = libtbx.env.find_in_repositories(
-            relative_path="simtbx/sim_view/data/4bs7.pdb",
+            relative_path="sim_erice/4bs7.pdb",
             test=os.path.isfile)
         if not pdbfile:
             print("Could not load default model file. Please supply one on the command line.")
