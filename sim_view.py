@@ -24,6 +24,7 @@ import libtbx.load_env
 from on_the_fly_simdata import run_simdata, get_SIM
 from simtbx.nanoBragg.tst_nanoBragg_multipanel import beam, whole_det
 from simtbx.diffBragg import hopper_utils
+from LS49.spectra.generate_spectra import spectra_simulation
 from iotbx.crystal_symmetry_from_any import extract_from as extract_symmetry_from
 from dxtbx_model_ext import Crystal
 from scitbx import matrix
@@ -125,6 +126,9 @@ class SimView(tk.Frame):
         self.ucell = self.SIM.crystal.dxtbx_crystal.get_unit_cell().parameters()
         self.scaled_ucell = self.ucell
         self._load_params_only()
+        self.SASE_sim = spectra_simulation()
+        self.SASE_iter = self.SASE_sim.generate_recast_renormalized_images(
+            nlimit=100, energy=self._VALUES["Energy"], total_flux=1e12)
         self._update_spectrum(new_pulse=True)
 
         fsize, ssize = whole_det[0].get_image_size()
@@ -231,9 +235,15 @@ class SimView(tk.Frame):
             gfunc = gaussian.term(1, 4 * math.log(2)/(bw**2)) # FWHM of bw, mu == 0
             self.spectrum_eV = [(energy + self._VALUES["Energy"], 1e12 * gfunc.at_x(energy)) \
                                 for energy in range(-50,51)]
-            self.spectrum_Ang = [(12398./energy, ampl) for (energy, ampl) in self.spectrum_eV]
+            self.spectrum_Ang = [(12398./energy, flux) for (energy, flux) in self.spectrum_eV]
         elif shape == "SASE":
-            raise NotImplemented("Haven't implemented the XFEL SASE spectrum yet")
+            if new_pulse:
+                self.pulse_energies_Ang, self.flux_list, self.avg_wavelength_Ang = next(self.SASE_iter)
+                self.pulse_energies_eV = [12398./e_Ang for e_Ang in self.pulse_energies_Ang]
+            shift = self._VALUES["Energy"] - 12398./self.avg_wavelength_Ang
+            shifted_energies_eV = [e_eV + shift for e_eV in self.pulse_energies_eV]
+            self.spectrum_eV = zip(shifted_energies_eV, self.flux_list)
+            self.spectrum_Ang = [(12398./energy, flux) for (energy, flux) in self.spectrum_eV]
         else:
             raise NotImplemented("Haven't implemented a spectrum of the requested shape {}".format(shape))
 
