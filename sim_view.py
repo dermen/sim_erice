@@ -27,6 +27,7 @@ from simtbx.diffBragg import hopper_utils
 from iotbx.crystal_symmetry_from_any import extract_from as extract_symmetry_from
 from dxtbx_model_ext import Crystal
 from scitbx import matrix
+from scitbx.math import gaussian
 from dials.array_family import flex
 import time
 
@@ -218,19 +219,23 @@ class SimView(tk.Frame):
             (self._VALUES["RotX"]*math.pi/180.,
             self._VALUES["RotY"]*math.pi/180.,
             self._VALUES["RotZ"]*math.pi/180.),
-            spectrum=self.spectrum,
+            spectrum=self.spectrum_Ang,
             eta_p=self._VALUES["MosAngDeg"])
         # t = time.time()-t
         self.img[self.pan, self.slow, self.fast] = pix
         self.image = self.img[0]
 
-    def _update_spectrum(self, new_pulse=False):
-        if new_pulse:
-            self.pulse = [l for l in np.random.normal(0, 1, 10)]
-        energy = 12398./self._VALUES["Energy"]
-        bw = 0.01*self._VALUES["Bandwidth"]
-        scaled_pulse = [l * bw * energy + energy for l in self.pulse]
-        self.spectrum = [(energy, 1e12) for energy in scaled_pulse]
+    def _update_spectrum(self, shape="Gaussian", new_pulse=False):
+        if shape == "Gaussian":
+            bw = 0.01*self._VALUES["Bandwidth"]*self._VALUES["Energy"] # bandwidth in eV
+            gfunc = gaussian.term(1, 4 * math.log(2)/(bw**2)) # FWHM of bw, mu == 0
+            self.spectrum_eV = [(energy + self._VALUES["Energy"], 1e12 * gfunc.at_x(energy)) \
+                                for energy in range(-50,51)]
+            self.spectrum_Ang = [(12398./energy, ampl) for (energy, ampl) in self.spectrum_eV]
+        elif shape == "SASE":
+            raise NotImplemented("Haven't implemented the XFEL SASE spectrum yet")
+        else:
+            raise NotImplemented("Haven't implemented a spectrum of the requested shape {}".format(shape))
 
     def _update_ucell(self, new_value):
         a,b,c = [x*new_value for x in self.ucell[:3]]
