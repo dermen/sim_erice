@@ -144,6 +144,7 @@ class SimView(tk.Frame):
         self.SASE_iter = self.SASE_sim.generate_recast_renormalized_images(
             nlimit=100, energy=self._VALUES["Energy"], total_flux=1e12)
         self._update_spectrum(new_pulse=True)
+        self.diffuse_scattering = False
 
         fsize, ssize = whole_det[0].get_image_size()
         img_sh = 1,ssize, fsize
@@ -207,6 +208,8 @@ class SimView(tk.Frame):
        
         _opt_frame = tk.Frame(self.master)
         _opt_frame.pack(side=tk.TOP, expand=tk.NO)
+        _button_frame = tk.Frame(self.master)
+        _button_frame.pack(side=tk.TOP, expand=tk.NO)
         
         tk.Label( _opt_frame, text="Adjusting variable: ", 
             font=("Helvetica",15), width=16)\
@@ -230,15 +233,20 @@ class SimView(tk.Frame):
         i.config(font=("Helvetica", 15))
         i.config(width=18)
 
-        s=tk.Button(_opt_frame, command=self._toggle_spectrum_shape, text="Toggle spectrum shape")
+        d=tk.Button(_button_frame, command=self._toggle_diffuse_scattering, text="Toggle diffuse scattering")
+        d.pack(side=tk.LEFT)
+        d.config(font=("Helvetica", 15))
+        d.config(width=24)
+
+        s=tk.Button(_button_frame, command=self._toggle_spectrum_shape, text="Toggle spectrum shape")
         s.pack(side=tk.LEFT)
         s.config(font=("Helvetica", 15))
-        s.config(width=18)
+        s.config(width=20)
 
-        o=tk.Button(_opt_frame, command=self._randomize_orientation, text="Randomize orientation")
+        o=tk.Button(_button_frame, command=self._randomize_orientation, text="Randomize orientation")
         o.pack(side=tk.LEFT)
         o.config(font=("Helvetica", 15))
-        o.config(width=18)
+        o.config(width=20)
 
     def _update_dial(self, new_dial):
         if new_dial != self.current_dial:
@@ -271,24 +279,36 @@ class SimView(tk.Frame):
         """generate image to match requested params"""
         # t = time.time()
         SIM = self.SIM if self._VALUES["Fhkl"] else self.SIM_noSF
+        diffuse_gamma = (
+            self._VALUES["Diff_gamma"], self._VALUES["Diff_gamma"], self._VALUES["Diff_gamma"]
+            ) if self.diffuse_scattering else None
+        diffuse_sigma = (
+            self._VALUES["Diff_sigma"], self._VALUES["Diff_sigma"], self._VALUES["Diff_sigma"]
+            ) if self.diffuse_scattering else None
         pix = run_simdata(SIM, self.pfs, self.scaled_ucell,
             tuple([(x,x,x) for x in [self._VALUES["MosDom"]]][0]),
             (self._VALUES["RotX"]*math.pi/180.,
             self._VALUES["RotY"]*math.pi/180.,
             self._VALUES["RotZ"]*math.pi/180.),
             spectrum=self.spectrum_Ang,
-            eta_p=self._VALUES["MosAngDeg"])
+            eta_p=self._VALUES["MosAngDeg"],
+            diffuse_gamma=diffuse_gamma,
+            diffuse_sigma=diffuse_sigma)
         # t = time.time()-t
         self.img_sim[self.pan, self.slow, self.fast] = pix
         self.img_cmap = self._normalize_image_data(self.img_sim[0])
         self.img_rgb[:,:,1] = self._normalize_image_data(self.img_sim[0] + self.img_ref) # green channel (grayscale if identical)
         self.img_rgb[:,:,2] = self._normalize_image_data(self.img_sim[0]) # blue channel
 
+    def _toggle_diffuse_scattering(self, _press=None):
+        self.diffuse_scattering = not self.diffuse_scattering
+        self._generate_image_data()
+        self._display()
+
     def _toggle_spectrum_shape(self, _press=None):
-        if self.spectrum_shape == "Gaussian":
-            self.spectrum_shape = "SASE"
-        else:
-            self.spectrum_shape = "Gaussian"
+        options = ["Gaussian", "SASE", "monochromatic"]
+        current = options.index(self.spectrum_shape)
+        self.spectrum_shape = options[current-2]
         self._update_spectrum(new_pulse=True)
         self._generate_image_data()
         self._display()
@@ -304,6 +324,8 @@ class SimView(tk.Frame):
             if new_pulse:
                 self.pulse_energies_Ang, self.flux_list, self.avg_wavelength_Ang = next(self.SASE_iter)
             self.spectrum_Ang = list(zip(self.pulse_energies_Ang, self.flux_list))
+        elif self.spectrum_shape == "monochromatic":
+            self.spectrum_Ang = [(12398./self._VALUES["Energy"], 1e12)] # single wavelength for computational speed
         else:
             raise NotImplemented("Haven't implemented a spectrum of the requested shape {}".format(shape))
 
@@ -322,17 +344,19 @@ class SimView(tk.Frame):
     def _make_master_label(self):
         """label that will be updated for each image"""
         self.master_label = tk.Label(self.master, text=\
-"""DomainSize: ____; MosAngleDeg: ____; a,b,c = ____;
+"""DomainSize: ____; MosAngleDeg: ____; ____; a,b,c = ____;
 Missetting angles in degrees (X,Y,Z) = (____, ____}, ____);
 Energy/Bandwidth= ____ / ____; ____; ____; ____""", font="Helvetica 15", width=350)
         self.master_label.pack(side=tk.TOP, expand=tk.NO)
 
     def _update_label(self):
-        self._label = """DomainSize: {mosdom}; MosAngleDeg: {mosang}; a,b,c = {ucell};
+        self._label = """Domain size: {mosdom}; Mosaic angle: {mosang}; Diffuse params: {gamma}, {sigma}; a,b,c = {ucell};
 Missetting angles in degrees (X,Y,Z) = ({rotx}, {roty}, {rotz});
 Energy/Bandwidth={energy}/{bw}; Spectra: {spectra}; {Fhkl}; Brightness: {bright}""".format(
             mosdom=self._LABELS["MosDom"],
             mosang=self._LABELS["MosAngDeg"],
+            gamma=self._LABELS["Diff_gamma"],
+            sigma=self._LABELS["Diff_sigma"],
             ucell=self._LABELS["ucell_scale"],
             energy=self._LABELS["Energy"],
             bw=self._LABELS["Bandwidth"],
@@ -349,6 +373,10 @@ Energy/Bandwidth={energy}/{bw}; Spectra: {spectra}; {Fhkl}; Brightness: {bright}
             return "{v}x{v}x{v}".format(v=new_value)
         elif dial == "MosAngDeg":
             return "{:.2f}º".format(new_value)
+        elif dial == "Diff_gamma":
+            return "{}".format(new_value)
+        elif dial == "Diff_sigma":
+            return "{:.2f}".format(new_value)
         elif dial == "ucell_scale":
             a,b,c = self.scaled_ucell[:3]
             return "{a:.2f}, {b:.2f}, {c:.2f}".format(a=a, b=b, c=c)
@@ -404,7 +432,8 @@ Energy/Bandwidth={energy}/{bw}; Spectra: {spectra}; {Fhkl}; Brightness: {bright}
         self.master.bind_all("<n>", self._next_dial)
 
         self.master.bind_all("<I>", self._toggle_image_mode) # toggle between RGB and colormap views
-        self.master.bind_all("<S>", self._toggle_spectrum_shape) # toggle between Gaussian and SASE spectra
+        self.master.bind_all("<D>", self._toggle_diffuse_scattering) # toggle diffuses scattering on/off
+        self.master.bind_all("<S>", self._toggle_spectrum_shape) # toggle between Gaussian, SASE and mono beam
         self.master.bind_all("<O>", self._randomize_orientation) # randomize crystal orientation
 
     def _next_dial(self, tkevent):
@@ -497,6 +526,8 @@ if __name__ == '__main__':
         "MosDom":[6, 200, 2, 10, 10],
         "MosAngDeg":[0.0, 1.5, 0.1, 1.0, 0.3001],
         "ucell_scale":[0.9, 1.1, 0.05, 0.1, 1],
+        "Diff_gamma":[1, 1000, 1, 10, 50], # TODO: anisotropy in both params gamma and sigma -- as a knob to control the ratio??
+        "Diff_sigma":[.001, 5, .1, 1, .3001],
         "Energy":[6000, 9000, 10, 30, 6750],
         "Bandwidth":[0, 6, 0.1, 1, 3],
         "RotX": [-180, 180, 0.01, 0.1, 0],

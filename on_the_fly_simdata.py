@@ -93,7 +93,7 @@ def randomize_orientation(SIM, seed_rand=32, seed_mersenne=0):
     SIM.crystal.dxtbx_crystal.set_U(ori)
     SIM.instantiate_diffBragg(oversample=1, device_Id=0, default_F=0)
 
-def run_simdata(SIM, pfs, ucell_p, ncells_p, rot_p, spectrum=None, eta_p=None, G=1):
+def run_simdata(SIM, pfs, ucell_p, ncells_p, rot_p, spectrum=None, eta_p=None, G=1, diffuse_gamma=None, diffuse_sigma=None):
     """
 
     :param SIM: sim_data.SimData instance returned by get_SIM method
@@ -145,23 +145,13 @@ def run_simdata(SIM, pfs, ucell_p, ncells_p, rot_p, spectrum=None, eta_p=None, G
     SIM.D.set_ncells_values(ncells_p)
 
     # diffuse signals
-    #if SIM.D.use_diffuse:
-    #    iso_flags = {'gamma':SIM.isotropic_diffuse_gamma, 'sigma':SIM.isotropic_diffuse_sigma}
-    #    for diff_type in ['gamma', 'sigma']:
-    #        diff_params = [SIM.P["diffuse_%s%d" % (diff_type,i_gam)] for i_gam in range(3)]
-    #        diffuse_params_lookup[diff_type] = diff_params
-    #        diff_vals = []
-    #        for i_diff, param in enumerate(diff_params):
-    #            val = param.get_val(x[param.xpos])
-    #            if iso_flags[diff_type]:
-    #                diff_vals = [val]*3
-    #                break
-    #            else:
-    #                diff_vals.append(val)
-    #        if diff_type == "gamma":
-    #            SIM.D.diffuse_gamma = tuple(diff_vals)
-    #        else:
-    #            SIM.D.diffuse_sigma = tuple(diff_vals)
+    if diffuse_gamma is not None:
+        assert diffuse_sigma is not None
+        SIM.D.use_diffuse = True
+        SIM.D.diffuse_gamma = diffuse_gamma # gamma has Angstrom units
+        SIM.D.diffuse_sigma = diffuse_sigma
+    else:
+        SIM.D.use_diffuse = False
 
     SIM.D.raw_pixels_roi *= 0
 
