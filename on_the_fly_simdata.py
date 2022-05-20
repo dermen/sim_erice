@@ -26,7 +26,7 @@ def get_SIM(dxtbx_det, dxtbx_beam, dxtbx_cryst, Fcalc_pdb=None):
 
     # mosaic block size
     crystal.Ncells_abc = 10,10,10  # will be update by GUI
-    crystal.n_mos_domains = 10
+    crystal.n_mos_domains = 100
     crystal.mos_spread_deg = 1
 
     if Fcalc_pdb is not None:
