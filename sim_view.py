@@ -30,6 +30,7 @@ from dxtbx_model_ext import Crystal
 from scitbx import matrix
 from scitbx.math import gaussian
 from dials.array_family import flex
+from libtbx import easy_pickle
 import time
 
 help_message="""SimView: lightweight simulator and viewer for diffraction still images.
@@ -126,6 +127,7 @@ class SimView(tk.Frame):
         self.ucell = self.SIM.crystal.dxtbx_crystal.get_unit_cell().parameters()
         self.scaled_ucell = self.ucell
         self._load_params_only()
+        self.percentile = 99.9
         self.SASE_sim = spectra_simulation()
         self.SASE_iter = self.SASE_sim.generate_recast_renormalized_images(
             nlimit=100, energy=self._VALUES["Energy"], total_flux=1e12)
@@ -137,7 +139,13 @@ class SimView(tk.Frame):
         self.fast = self.pfs[1::3].as_numpy_array()
         self.slow = self.pfs[2::3].as_numpy_array()
         self.pan = self.pfs[0::3].as_numpy_array()
-        self.img = np.zeros((1,ssize, fsize))
+        self.img_sim = np.zeros((1, ssize, fsize))
+        self.img_rgb = np.zeros((ssize, fsize, 3))
+        ref_file = libtbx.env.find_in_repositories(
+            relative_path="sim_erice/ref_img.pkl",
+            test=os.path.isfile)
+        self.img_ref = easy_pickle.load(ref_file)
+        self.img_rgb[:,:,0] = self._normalize_image_data(self.img_ref)
 
         self._set_option_menu()
         self._make_master_label()
@@ -214,6 +222,19 @@ class SimView(tk.Frame):
             self._VALUES[dial] = default
             self._LABELS[dial] = self._get_new_label_part(dial, default)
 
+    def _update_normalization(self):
+        """update normalization"""
+        exponent = self._VALUES["Brightness"]*2-2
+        self.percentile = 100 - 10**exponent
+        self.img_rgb[:,:,0] = self._normalize_image_data(self.img_ref) # red channel
+
+    def _normalize_image_data(self, img_data):
+        """scale data to [0,1] where variable %ile intensities and above are set to 1."""
+        scale = 1./max(1e-50,np.percentile(img_data, self.percentile))
+        scaled_data = img_data * scale
+        scaled_data[scaled_data > 1] = 1
+        return scaled_data
+
     def _generate_image_data(self):
         """generate image to match requested params"""
         # t = time.time()
@@ -226,8 +247,9 @@ class SimView(tk.Frame):
             spectrum=self.spectrum_Ang,
             eta_p=self._VALUES["MosAngDeg"])
         # t = time.time()-t
-        self.img[self.pan, self.slow, self.fast] = pix
-        self.image = self.img[0]
+        self.img_sim[self.pan, self.slow, self.fast] = pix
+        self.img_rgb[:,:,1] = self._normalize_image_data(self.img_sim[0] + self.img_ref) # green channel (grayscale if identical)
+        self.img_rgb[:,:,2] = self._normalize_image_data(self.img_sim[0]) # blue channel
 
     def _update_spectrum(self, shape="Gaussian", new_pulse=False):
         if shape == "Gaussian":
@@ -256,13 +278,13 @@ class SimView(tk.Frame):
         self.master_label = tk.Label(self.master, text=\
 """DomainSize: ____; MosAngleDeg: ____; a,b,c = ____;
 Missetting angles in degrees (X,Y,Z) = (____, ____}, ____);
-Energy/Bandwidth= ____ / ____; ____""", font="Helvetica 15", width=350)
+Energy/Bandwidth= ____ / ____; ____; ____""", font="Helvetica 15", width=350)
         self.master_label.pack(side=tk.TOP, expand=tk.NO)
 
     def _update_label(self):
         self._label = """DomainSize: {mosdom}; MosAngleDeg: {mosang}; a,b,c = {ucell};
 Missetting angles in degrees (X,Y,Z) = ({rotx}, {roty}, {rotz});
-Energy/Bandwidth= {energy} / {bw}; {Fhkl}""".format(
+Energy/Bandwidth={energy}/{bw}; {Fhkl}; Brightness: {bright}""".format(
             mosdom=self._LABELS["MosDom"],
             mosang=self._LABELS["MosAngDeg"],
             ucell=self._LABELS["ucell_scale"],
@@ -271,7 +293,8 @@ Energy/Bandwidth= {energy} / {bw}; {Fhkl}""".format(
             rotx=self._LABELS["RotX"],
             roty=self._LABELS["RotY"],
             rotz=self._LABELS["RotZ"],
-            Fhkl=self._LABELS["Fhkl"]
+            Fhkl=self._LABELS["Fhkl"],
+            bright=self._LABELS["Brightness"]
         )
 
     def _get_new_label_part(self, dial, new_value):
@@ -289,15 +312,17 @@ Energy/Bandwidth= {energy} / {bw}; {Fhkl}""".format(
         elif dial in ["RotX", "RotY", "RotZ"]:
             return "{:+.2f}".format(new_value)
         elif dial == "Fhkl":
-            return "Structure factors {}accounted for".format("" if new_value else "not ")
+            return "SFs {}".format("on" if new_value else "off")
+        elif dial == "Brightness":
+            return "{:.2f}".format(new_value)
 
     def _display(self, init=False):
         """display the current image"""
 
         if init:
-            self.aximg = self.ax.imshow(self.image)
+            self.aximg = self.ax.imshow(self.img_rgb)
         else:
-            self.aximg.set_data(self.image)
+            self.aximg.set_data(self.img_rgb)
 
         self._update_label()
         self.master_label.config(text=self._label)
@@ -345,6 +370,8 @@ Energy/Bandwidth= {energy} / {bw}; {Fhkl}""".format(
             self._update_spectrum()
         elif dial == "ucell_scale":
             self._update_ucell(new_value)
+        elif dial == "Brightness":
+            self._update_normalization()
         self._generate_image_data()
         self._display()
 
@@ -402,14 +429,15 @@ if __name__ == '__main__':
     # params stored as: [min, max, small_step, big_step, default]
     params = {
         "MosDom":[6, 200, 2, 10, 10],
-        "MosAngDeg":[0.0, 1.5, 0.3, 1.0, 0.3001],
+        "MosAngDeg":[0.0, 1.5, 0.1, 1.0, 0.3001],
         "ucell_scale":[0.9, 1.1, 0.05, 0.1, 1],
-        "Energy":[6720, 7180, 10, 30, 6750],
+        "Energy":[6000, 9000, 10, 30, 6750],
         "Bandwidth":[0, 6, 0.1, 1, 3],
         "RotX": [-180, 180, 0.01, 0.1, 0],
         "RotY": [-180, 180, 0.01, 0.1, 0],
         "RotZ": [-180, 180, 0.01, 0.1, 0],
-        "Fhkl":[0, 1, 1, 1, 1]} # binary switch
+        "Fhkl":[0, 1, 1, 1, 1], # binary switch
+        "Brightness":[0, 1, 0.01, 0.1, 0.5]}
 
     root = tk.Tk()
     root.title("SimView")
