@@ -1,6 +1,7 @@
 
 from simtbx.diffBragg import utils
 from simtbx.nanoBragg import nanoBragg_crystal, nanoBragg_beam, sim_data
+import scitbx
 import numpy as np
 from dials.array_family import flex
 
@@ -81,6 +82,16 @@ def get_pfs(all_pid, all_fast, all_slow):
     pan_fast_slow = flex.size_t(pan_fast_slow)
     return pan_fast_slow
 
+def randomize_orientation(SIM, seed_rand=32, seed_mersenne=0):
+    mersenne_twister = flex.mersenne_twister(seed=seed_mersenne)
+    scitbx.random.set_random_seed(seed_rand)
+    rand_norm = scitbx.random.normal_distribution(mean=0, sigma=2)
+    g = scitbx.random.variate(rand_norm)
+    rot = g(1)
+    site = scitbx.matrix.col(mersenne_twister.random_double_point_on_sphere())
+    ori = site.axis_and_angle_as_r3_rotation_matrix(rot[0],deg=False)
+    SIM.crystal.dxtbx_crystal.set_U(ori)
+    SIM.instantiate_diffBragg(oversample=1, device_Id=0, default_F=0)
 
 def run_simdata(SIM, pfs, ucell_p, ncells_p, rot_p, spectrum=None, eta_p=None, G=1):
     """

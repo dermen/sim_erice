@@ -21,7 +21,7 @@ from matplotlib.backends.backend_tkagg import \
     FigureCanvasTkAgg, NavigationToolbar2Tk
 
 import libtbx.load_env
-from on_the_fly_simdata import run_simdata, get_SIM
+from on_the_fly_simdata import run_simdata, get_SIM, randomize_orientation
 from simtbx.nanoBragg.tst_nanoBragg_multipanel import beam, whole_det
 from simtbx.diffBragg import hopper_utils
 from LS49.spectra.generate_spectra import spectra_simulation
@@ -31,6 +31,7 @@ from scitbx import matrix
 from scitbx.math import gaussian
 from dials.array_family import flex
 from libtbx import easy_pickle
+from random import randint
 import time
 
 help_message="""SimView: lightweight simulator and viewer for diffraction still images.
@@ -52,6 +53,7 @@ Space bar:          simulate a new stochastic XFEL pulse
 R:                  reset all parameters to defaults
 I:                  toggle between image display modes
 S:                  toggle spectrum shape
+O:                  randomize crystal orientation
 
 (Note that matplotlib binds the left arrow key to resetting the field of view,
 so both this effect and selection of the previous parameter will take place
@@ -156,6 +158,10 @@ class SimView(tk.Frame):
             relative_path="sim_erice/ref_img.pkl",
             test=os.path.isfile)
         self.img_ref = easy_pickle.load(ref_file)
+        ref_ori = libtbx.env.find_in_repositories(
+            relative_path="sim_erice/ref_ori.pkl",
+            test=os.path.isfile)
+        self.start_ori = easy_pickle.load(ref_ori)
         self.img_rgb[:,:,0] = self._normalize_image_data(self.img_ref)
 
         self._set_option_menu()
@@ -229,6 +235,11 @@ class SimView(tk.Frame):
         s.config(font=("Helvetica", 15))
         s.config(width=18)
 
+        o=tk.Button(_opt_frame, command=self._randomize_orientation, text="Randomize orientation")
+        o.pack(side=tk.LEFT)
+        o.config(font=("Helvetica", 15))
+        o.config(width=18)
+
     def _update_dial(self, new_dial):
         if new_dial != self.current_dial:
             self.current_dial = new_dial
@@ -299,6 +310,14 @@ class SimView(tk.Frame):
     def _update_ucell(self, new_value):
         a,b,c = [x*new_value for x in self.ucell[:3]]
         self.scaled_ucell = (a,b,c,*self.ucell[3:6])
+
+    def _randomize_orientation(self, _press=None):
+        seed1 = randint(0,1024)
+        seed2 = randint(0,1024)
+        randomize_orientation(self.SIM, seed_rand=seed1, seed_mersenne=seed2)
+        randomize_orientation(self.SIM_noSF, seed_rand=seed1, seed_mersenne=seed2)
+        self._generate_image_data()
+        self._display()
 
     def _make_master_label(self):
         """label that will be updated for each image"""
@@ -386,6 +405,7 @@ Energy/Bandwidth={energy}/{bw}; Spectra: {spectra}; {Fhkl}; Brightness: {bright}
 
         self.master.bind_all("<I>", self._toggle_image_mode) # toggle between RGB and colormap views
         self.master.bind_all("<S>", self._toggle_spectrum_shape) # toggle between Gaussian and SASE spectra
+        self.master.bind_all("<O>", self._randomize_orientation) # randomize crystal orientation
 
     def _next_dial(self, tkevent):
         try:
@@ -451,6 +471,9 @@ Energy/Bandwidth={energy}/{bw}; Spectra: {spectra}; {Fhkl}; Brightness: {bright}
             default_value = self.params[dial][4]
             self._VALUES[dial] = default_value
             self._LABELS[dial] = self._get_new_label_part(dial, default_value)
+        for SIM in (self.SIM, self.SIM_noSF):
+            SIM.crystal.dxtbx_crystal.set_U(self.start_ori)
+            SIM.instantiate_diffBragg(oversample=1, device_Id=0, default_F=0)
         self._generate_image_data()
         self._display(init=True)
 
