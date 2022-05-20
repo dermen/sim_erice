@@ -50,6 +50,7 @@ Shift-up arrow:     increase this parameter a lot
 Shift-down arrow:   decrease this parameter a lot
 Space bar:          simulate a new stochastic XFEL pulse
 r:                  reset all parameters to defaults
+i:                  toggle between image display modes
 
 (Note that matplotlib binds the left arrow key to resetting the field of view,
 so both this effect and selection of the previous parameter will take place
@@ -128,6 +129,7 @@ class SimView(tk.Frame):
         self.scaled_ucell = self.ucell
         self._load_params_only()
         self.percentile = 99.9
+        self.image_mode = "rgb"
         self.SASE_sim = spectra_simulation()
         self.SASE_iter = self.SASE_sim.generate_recast_renormalized_images(
             nlimit=100, energy=self._VALUES["Energy"], total_flux=1e12)
@@ -140,6 +142,7 @@ class SimView(tk.Frame):
         self.slow = self.pfs[2::3].as_numpy_array()
         self.pan = self.pfs[0::3].as_numpy_array()
         self.img_sim = np.zeros((1, ssize, fsize))
+        self.img_cmap = np.zeros((ssize, fsize))
         self.img_rgb = np.zeros((ssize, fsize, 3))
         ref_file = libtbx.env.find_in_repositories(
             relative_path="sim_erice/ref_img.pkl",
@@ -203,10 +206,15 @@ class SimView(tk.Frame):
         self.param_opt_menu.config(width=12)
         self.param_opt_menu.config(font=("Helvetica", 18))
 
-        b=tk.Button(_opt_frame, command=self._reset, text="Reset")
-        b.pack(side=tk.LEFT)
-        b.config(font=("Helvetica", 18))
-        b.config(width=6)
+        r=tk.Button(_opt_frame, command=self._reset, text="Reset")
+        r.pack(side=tk.LEFT)
+        r.config(font=("Helvetica", 18))
+        r.config(width=6)
+
+        i=tk.Button(_opt_frame, command=self._toggle_image_mode, text="Toggle image mode")
+        i.pack(side=tk.LEFT)
+        i.config(font=("Helvetica", 18))
+        i.config(width=18)
 
     def _update_dial(self, new_dial):
         if new_dial != self.current_dial:
@@ -248,6 +256,7 @@ class SimView(tk.Frame):
             eta_p=self._VALUES["MosAngDeg"])
         # t = time.time()-t
         self.img_sim[self.pan, self.slow, self.fast] = pix
+        self.img_cmap = self._normalize_image_data(self.img_sim[0])
         self.img_rgb[:,:,1] = self._normalize_image_data(self.img_sim[0] + self.img_ref) # green channel (grayscale if identical)
         self.img_rgb[:,:,2] = self._normalize_image_data(self.img_sim[0]) # blue channel
 
@@ -318,17 +327,29 @@ Energy/Bandwidth={energy}/{bw}; {Fhkl}; Brightness: {bright}""".format(
 
     def _display(self, init=False):
         """display the current image"""
-
         if init:
-            self.aximg = self.ax.imshow(self.img_rgb)
+            if self.image_mode == "rgb":
+                self.aximg = self.ax.imshow(self.img_rgb)
+            else:
+                self.aximg = self.ax.imshow(self.img_cmap, cmap='magma')
         else:
-            self.aximg.set_data(self.img_rgb)
+            if self.image_mode == "rgb":
+                self.aximg.set_data(self.img_rgb)
+            else:
+                self.aximg.set_data(self.img_cmap)
 
         self._update_label()
         self.master_label.config(text=self._label)
         self.master_label.config(font=("Courier", 15))
 
         self.canvas.draw()
+
+    def _toggle_image_mode(self, _press=None):
+        if self.image_mode == "rgb":
+            self.image_mode = "cmap"
+        else:
+            self.image_mode = "rgb"
+        self._display(init=True)
 
     def bind(self):
         """key bindings"""
@@ -343,6 +364,8 @@ Energy/Bandwidth={energy}/{bw}; {Fhkl}; Brightness: {bright}""".format(
         self.master.bind_all("<p>", self._prev_dial)
         self.master.bind_all("<Right>", self._next_dial)
         self.master.bind_all("<n>", self._next_dial)
+
+        self.master.bind_all("<i>", self._toggle_image_mode) # toggle between RGB and colormap views
 
     def _next_dial(self, tkevent):
         try:
@@ -437,7 +460,7 @@ if __name__ == '__main__':
         "RotY": [-180, 180, 0.01, 0.1, 0],
         "RotZ": [-180, 180, 0.01, 0.1, 0],
         "Fhkl":[0, 1, 1, 1, 1], # binary switch
-        "Brightness":[0, 1, 0.01, 0.1, 0.5]}
+        "Brightness":[0, 2, 0.01, 0.1, 0.5]}
 
     root = tk.Tk()
     root.title("SimView")
