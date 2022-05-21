@@ -219,10 +219,10 @@ class SimView(tk.Frame):
         self.param_opt_menu.config(width=10)
         self.param_opt_menu.config(font=("Helvetica", 15))
 
-        r=tk.Button(_opt_frame, command=self._reset, text="Reset")
+        r=tk.Button(_opt_frame, command=self._reset, text="Reset all")
         r.pack(side=tk.LEFT)
         r.config(font=("Helvetica", 15))
-        r.config(width=4)
+        r.config(width=8)
 
         i=tk.Button(_opt_frame, command=self._toggle_image_mode, text="Toggle image mode")
         i.pack(side=tk.LEFT)
@@ -232,7 +232,7 @@ class SimView(tk.Frame):
         d=tk.Button(_button_frame, command=self._toggle_diffuse_scattering, text="Toggle diffuse scattering")
         d.pack(side=tk.LEFT)
         d.config(font=("Helvetica", 15))
-        d.config(width=24)
+        d.config(width=22)
 
         s=tk.Button(_button_frame, command=self._toggle_spectrum_shape, text="Toggle spectrum shape")
         s.pack(side=tk.LEFT)
@@ -281,10 +281,14 @@ class SimView(tk.Frame):
         # t = time.time()
         SIM = self.SIM if self._VALUES["Fhkl"] else self.SIM_noSF
         diffuse_gamma = (
-            self._VALUES["Diff_gamma"], self._VALUES["Diff_gamma"], self._VALUES["Diff_gamma"]
+            self._VALUES["Diff_gamma"],
+            self._VALUES["Diff_gamma"] * self._VALUES["Aniso"],
+            self._VALUES["Diff_gamma"] / self._VALUES["Aniso"]
             ) if self.diffuse_scattering else None
         diffuse_sigma = (
-            self._VALUES["Diff_sigma"], self._VALUES["Diff_sigma"], self._VALUES["Diff_sigma"]
+            self._VALUES["Diff_sigma"],
+            self._VALUES["Diff_sigma"] * self._VALUES["Aniso"],
+            self._VALUES["Diff_sigma"] / self._VALUES["Aniso"]
             ) if self.diffuse_scattering else None
         pix = run_simdata(SIM, self.pfs, self.scaled_ucell,
             tuple([(x,x,x) for x in [self._VALUES["MosDom"]]][0]),
@@ -354,17 +358,20 @@ class SimView(tk.Frame):
         self.master_label = tk.Label(self.master, text=\
 """DomainSize: ____; MosAngleDeg: ____; ____; a,b,c = ____;
 Missetting angles in degrees (X,Y,Z) = (____, ____}, ____);
-Energy/Bandwidth= ____ / ____; ____; ____; ____""", font="Helvetica 15", width=350)
+Diffuse gamma: ____, sigma: ____, anisotropy factor: ____;
+Energy/Bandwidth= ____ / ____; Spectra: ____; ____; Brightness: ____""", font="Helvetica 15", width=350)
         self.master_label.pack(side=tk.TOP, expand=tk.NO)
 
     def _update_label(self):
-        self._label = """Domain size: {mosdom}; Mosaic angle: {mosang}; Diffuse params: {gamma}, {sigma}; a,b,c = {ucell};
+        self._label = """Domain size: {mosdom}; Mosaic angle: {mosang}; {sigma}; a,b,c = {ucell};
 Missetting angles in degrees (X,Y,Z) = ({rotx}, {roty}, {rotz});
-Energy/Bandwidth={energy}/{bw}; Spectra: {spectra}; {Fhkl}; Brightness: {bright}""".format(
+Diffuse gamma: {gamma}, sigma: {sigma}, anisotropy factor: {aniso};
+Energy/Bandwidth = {energy}/{bw}; Spectra: {spectra}; {Fhkl}; Brightness: {bright}""".format(
             mosdom=self._LABELS["MosDom"],
             mosang=self._LABELS["MosAngDeg"],
             gamma=self._LABELS["Diff_gamma"],
             sigma=self._LABELS["Diff_sigma"],
+            aniso=self._LABELS["Aniso"],
             ucell=self._LABELS["ucell_scale"],
             energy=self._LABELS["Energy"],
             bw=self._LABELS["Bandwidth"],
@@ -384,6 +391,8 @@ Energy/Bandwidth={energy}/{bw}; Spectra: {spectra}; {Fhkl}; Brightness: {bright}
         elif dial == "Diff_gamma":
             return "{}".format(new_value)
         elif dial == "Diff_sigma":
+            return "{:.2f}".format(new_value)
+        elif dial == "Aniso":
             return "{:.2f}".format(new_value)
         elif dial == "ucell_scale":
             a,b,c = self.scaled_ucell[:3]
@@ -533,10 +542,11 @@ if __name__ == '__main__':
     # params stored as: [min, max, small_step, big_step, default]
     params = {
         "MosDom":[6, 200, 2, 10, 10],
-        "MosAngDeg":[0.0, 1.5, 0.1, 1.0, 0.3001],
+        "MosAngDeg":[0.0, 5, 0.1, 1.0, 0.3001],
         "ucell_scale":[0.9, 1.1, 0.05, 0.1, 1],
-        "Diff_gamma":[1, 1000, 1, 10, 50], # TODO: anisotropy in both params gamma and sigma -- as a knob to control the ratio??
+        "Diff_gamma":[1, 1000, 1, 10, 50],
         "Diff_sigma":[.001, 5, .1, 1, .3001],
+        "Aniso":[.01, 10, .01, .1, 1],
         "Energy":[6000, 9000, 10, 30, 6750],
         "Bandwidth":[0, 6, 0.1, 1, 3],
         "RotX": [-180, 180, 0.01, 0.1, 0],
