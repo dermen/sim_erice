@@ -413,8 +413,10 @@ Energy/Bandwidth = {energy}/{bw}; Spectra: {spectra}; {Fhkl}; Brightness: {brigh
         if init:
             if self.image_mode == "rgb":
                 self.aximg = self.ax.imshow(self.img_rgb)
-            else:
+            elif self.image_mode == "cmap":
                 self.aximg = self.ax.imshow(self.img_cmap, cmap='magma')
+            else:
+                self.aximg = self.ax.imshow(self.img_cmap, cmap='Greys_r')
         else:
             if self.image_mode == "rgb":
                 self.aximg.set_data(self.img_rgb)
@@ -428,10 +430,9 @@ Energy/Bandwidth = {energy}/{bw}; Spectra: {spectra}; {Fhkl}; Brightness: {brigh
         self.canvas.draw()
 
     def _toggle_image_mode(self, _press=None):
-        if self.image_mode == "rgb":
-            self.image_mode = "cmap"
-        else:
-            self.image_mode = "rgb"
+        options = ["rgb", "cmap", "greyscale"]
+        current = options.index(self.image_mode)
+        self.image_mode = options[current-2]
         self._display(init=True)
 
     def bind(self):
