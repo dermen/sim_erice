@@ -54,6 +54,7 @@ R:                  reset all parameters to defaults
 I:                  toggle between image display modes
 S:                  toggle spectrum shape
 O:                  randomize crystal orientation
+U:                  update reference image (in red)
 
 (Note that matplotlib binds the left arrow key to resetting the field of view,
 so both this effect and selection of the previous parameter will take place
@@ -152,18 +153,13 @@ class SimView(tk.Frame):
         self.fast = self.pfs[1::3].as_numpy_array()
         self.slow = self.pfs[2::3].as_numpy_array()
         self.pan = self.pfs[0::3].as_numpy_array()
+        self.img_ref = np.zeros((1, ssize, fsize))
         self.img_sim = np.zeros((1, ssize, fsize))
         self.img_cmap = np.zeros((ssize, fsize))
         self.img_rgb = np.zeros((ssize, fsize, 3))
-        ref_file = libtbx.env.find_in_repositories(
-            relative_path="sim_erice/ref_img.pkl",
-            test=os.path.isfile)
-        self.img_ref = easy_pickle.load(ref_file)
-        ref_ori = libtbx.env.find_in_repositories(
-            relative_path="sim_erice/ref_ori.pkl",
-            test=os.path.isfile)
-        self.start_ori = easy_pickle.load(ref_ori)
-        self.img_rgb[:,:,0] = self._normalize_image_data(self.img_ref)
+        self.start_ori = self.SIM.crystal.dxtbx_crystal.get_U()
+        self._generate_image_data(update_ref=True)
+        self.img_rgb[:,:,0] = self._normalize_image_data(self.img_ref[0])
 
         self._set_option_menu()
         self._make_master_label()
@@ -248,6 +244,11 @@ class SimView(tk.Frame):
         o.config(font=("Helvetica", 15))
         o.config(width=20)
 
+        u=tk.Button(_opt_frame, command=self._update_reference, text="Update reference image")
+        u.pack(side=tk.LEFT)
+        u.config(font=("Helvetica", 15))
+        u.config(width=21)
+
     def _update_dial(self, new_dial):
         if new_dial != self.current_dial:
             self.current_dial = new_dial
@@ -275,7 +276,7 @@ class SimView(tk.Frame):
         scaled_data[scaled_data > 1] = 1
         return scaled_data
 
-    def _generate_image_data(self):
+    def _generate_image_data(self, update_ref=False):
         """generate image to match requested params"""
         # t = time.time()
         SIM = self.SIM if self._VALUES["Fhkl"] else self.SIM_noSF
@@ -296,8 +297,11 @@ class SimView(tk.Frame):
             diffuse_sigma=diffuse_sigma)
         # t = time.time()-t
         self.img_sim[self.pan, self.slow, self.fast] = pix
+        if update_ref:
+            self.img_ref[self.pan, self.slow, self.fast] = pix
+            self.img_rgb[:,:,0] = self._normalize_image_data(self.img_ref[0]) # red channel
         self.img_cmap = self._normalize_image_data(self.img_sim[0])
-        self.img_rgb[:,:,1] = self._normalize_image_data(self.img_sim[0] + self.img_ref) # green channel (grayscale if identical)
+        self.img_rgb[:,:,1] = self._normalize_image_data(self.img_sim[0] + self.img_ref[0]) # green channel (grayscale if identical)
         self.img_rgb[:,:,2] = self._normalize_image_data(self.img_sim[0]) # blue channel
 
     def _toggle_diffuse_scattering(self, _press=None):
@@ -338,7 +342,11 @@ class SimView(tk.Frame):
         seed2 = randint(0,1024)
         randomize_orientation(self.SIM, seed_rand=seed1, seed_mersenne=seed2)
         randomize_orientation(self.SIM_noSF, seed_rand=seed1, seed_mersenne=seed2)
-        self._generate_image_data()
+        self._generate_image_data(update_ref=True)
+        self._display()
+
+    def _update_reference(self, _press=None):
+        self._generate_image_data(update_ref=True)
         self._display()
 
     def _make_master_label(self):
@@ -435,6 +443,7 @@ Energy/Bandwidth={energy}/{bw}; Spectra: {spectra}; {Fhkl}; Brightness: {bright}
         self.master.bind_all("<D>", self._toggle_diffuse_scattering) # toggle diffuses scattering on/off
         self.master.bind_all("<S>", self._toggle_spectrum_shape) # toggle between Gaussian, SASE and mono beam
         self.master.bind_all("<O>", self._randomize_orientation) # randomize crystal orientation
+        self.master.bind_all("<U>", self._update_reference) # update reference image (in red)
 
     def _next_dial(self, tkevent):
         try:
@@ -503,7 +512,7 @@ Energy/Bandwidth={energy}/{bw}; Spectra: {spectra}; {Fhkl}; Brightness: {bright}
         for SIM in (self.SIM, self.SIM_noSF):
             SIM.crystal.dxtbx_crystal.set_U(self.start_ori)
             SIM.instantiate_diffBragg(oversample=1, device_Id=0, default_F=0)
-        self._generate_image_data()
+        self._generate_image_data(update_ref=True)
         self._display(init=True)
 
 if __name__ == '__main__':
