@@ -26,6 +26,7 @@ from simtbx.nanoBragg.tst_nanoBragg_multipanel import beam, whole_det
 from simtbx.diffBragg import hopper_utils
 from LS49.spectra.generate_spectra import spectra_simulation
 from iotbx.crystal_symmetry_from_any import extract_from as extract_symmetry_from
+from iotbx.pdb.fetch import get_pdb
 from cctbx.uctbx import unit_cell
 from dxtbx_model_ext import Crystal
 from scitbx import matrix
@@ -39,7 +40,11 @@ help_message="""SimView: lightweight simulator and viewer for diffraction still 
 
 Run without any arguments, this program simulates diffraction of a small
 lysozyme crystal. You may provide a different pdb file on the command line
-instead. The diffraction will be simulated with a set of default parameters
+instead, or may request the program fetch one from the PDB by supplying its PDB
+ID and the -f flag (for "fetch"). If this fails you may want to try using the
+command line program "iotbx.fetch_pdb" instead.
+
+Diffraction from your crystal will be simulated with a set of default parameters
 for mosaic block size, beam energy and bandpass, etc. that you can change by
 adjusting each of the dials. Parameters to be adjusted can be selected either
 with the drop-down menu or with keyboard shortcuts as follows:
@@ -77,7 +82,8 @@ spots.
 
 a, b, c: the parameters of the crystal unit cell. Depending on the symmetry
 of the crystal, these may all vary independently or may be constrained to
-scale together. Larger unit cells produce constructive and destructive
+scale together, in which case not all unit cell lengths will be exposed as
+adjustible dials. Larger unit cells produce constructive and destructive
 interference at smaller angles, resulting in more closely spaced Bragg
 peaks on the detector.
 
@@ -98,7 +104,9 @@ Spectrum shape: to simulate images with real SASE spectra, toggle this
 option to "SASE". To display diffraction produced by a smooth Gaussian
 function that can be adjusted in energy and bandwidth, toggle this to
 "Gaussian". SASE spectra are stochastic and will intentionally not be
-modified by the energy and bandwidth controls.
+modified by the energy and bandwidth controls. The "monochromatic"
+option is recommended when diffuse scattering is enabled, to offset the
+greater computational cost.
 
 Fhkl: when we observe diffraction from a single particle, we are seeing
 the Fourier transform of the particle, with [a great deal of] added
@@ -111,6 +119,32 @@ conditions, i.e. Bragg peaks). In order to better see the effects of the
 above parameters, we can ignore the Fourier transform of the asymmetric
 unit and pretend all of the Bragg peaks have uniform intensity. This is
 what we are simulating when we display "SFs on/off".
+
+Diffuse scattering: this physical effect is a result of variation and
+imperfection within the crystal and surrounding solvent, and it appears
+as X-ray scattering between and around the Bragg peaks. Modeling this
+can be toggled on or off. It is recommended to use the monochromatic
+spectrum setting when calculating diffuse signal.
+
+Diff_gamma and diff_sigma: parameters describing the diffuse scattering
+signal. TODO: write more here after reading up on what these mean.
+
+Aniso: anisotropic quality to the diffuse scattering. This is arbitrarily
+assigned directionality, and the adjustible parameter controls the
+degree to which this effect is observed.
+
+Further notes on the image viewer: a random orientation can be assigned
+to the crystal by pressing the "Randomize orientation" button any number
+of times. Both the simulated and reference image update in this event.
+Outside of this situation, the reference image will be identical to your
+starting default parameters and can be updated to current parameters by
+pressing "Update reference". This can help highlight the difference
+between selected combinations of parameters. Finally, the viewer has
+three display modes, one in which the reference image is displayed in red
+and the current simulation is displayed in blue (with perfect overlap
+resulting in white or gray), and two in which only the simulated image
+is visible, displayed in either color or grayscale. You can cycle between
+these modes with the "Toggle image mode" button.
 """
 
 class SimView(tk.Frame):
@@ -320,7 +354,7 @@ class SimView(tk.Frame):
             self._VALUES["Diff_sigma"] / self._VALUES["Aniso"]
             ) if self.diffuse_scattering else None
         pix = run_simdata(SIM, self.pfs, self.scaled_ucell,
-            tuple([(x,x,x) for x in [self._VALUES["MosDom"]]][0]),
+            tuple([(x,x,x) for x in [self._VALUES["DomainSize"]]][0]),
             (self._VALUES["RotX"]*math.pi/180.,
             self._VALUES["RotY"]*math.pi/180.,
             self._VALUES["RotZ"]*math.pi/180.),
@@ -410,7 +444,7 @@ Energy/Bandwidth= ____ / ____; Spectra: ____; ____; Brightness: ____""", font="H
 Missetting angles in degrees (X,Y,Z) = ({rotx}, {roty}, {rotz});
 Diffuse gamma: {gamma}, sigma: {sigma}, anisotropy factor: {aniso};
 Energy/Bandwidth = {energy}/{bw}; Spectra: {spectra}; {Fhkl}; Brightness: {bright}""".format(
-            mosdom=self._LABELS["MosDom"],
+            mosdom=self._LABELS["DomainSize"],
             mosang=self._LABELS["MosAngDeg"],
             gamma=self._LABELS["Diff_gamma"] if self.diffuse_scattering else "N/A",
             sigma=self._LABELS["Diff_sigma"] if self.diffuse_scattering else "N/A",
@@ -427,7 +461,7 @@ Energy/Bandwidth = {energy}/{bw}; Spectra: {spectra}; {Fhkl}; Brightness: {brigh
         )
 
     def _get_new_label_part(self, dial, new_value):
-        if dial == "MosDom":
+        if dial == "DomainSize":
             return "{v}x{v}x{v}".format(v=new_value)
         elif dial == "MosAngDeg":
             return "{:.2f}º".format(new_value)
@@ -576,7 +610,17 @@ if __name__ == '__main__':
         if "-h" in sys.argv:
             print(help_message)
             exit()
-        pdbfile = sys.argv[1]
+        if "-f" in sys.argv:
+            sys.argv.remove("-f")
+            pdbid = sys.argv[-1]
+            try:
+                pdbfile = get_pdb(pdbid, "pdb", "rcsb", log=sys.stdout, format="pdb")
+            except Exception:
+                import pdb; pdb.set_trace()
+                print("Couldn't fetch pdb {}. Try fetching with iotbx.fetch_pdb.".format(pdbid))
+                exit()
+        else:
+            pdbfile = sys.argv[1]
     else:
         pdbfile = libtbx.env.find_in_repositories(
             relative_path="sim_erice/4bs7.pdb",
@@ -587,7 +631,7 @@ if __name__ == '__main__':
 
     # params stored as: [min, max, small_step, big_step, default]
     params = {
-        "MosDom":[6, 200, 2, 10, 10],
+        "DomainSize":[6, 200, 2, 10, 10],
         "MosAngDeg":[0.0, 5, 0.1, 1.0, 0.3001],
         "ucell_scale":[0.5, 2., 0.05, 0.1, 1],
         "Diff_gamma":[1, 1000, 1, 10, 50],
