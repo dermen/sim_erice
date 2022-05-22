@@ -26,6 +26,7 @@ from simtbx.nanoBragg.tst_nanoBragg_multipanel import beam, whole_det
 from simtbx.diffBragg import hopper_utils
 from LS49.spectra.generate_spectra import spectra_simulation
 from iotbx.crystal_symmetry_from_any import extract_from as extract_symmetry_from
+from cctbx.uctbx import unit_cell
 from dxtbx_model_ext import Crystal
 from scitbx import matrix
 from scitbx.math import gaussian
@@ -135,8 +136,10 @@ class SimView(tk.Frame):
         panel.set_frame(fast, slow, offset_orig)
         self.SIM = get_SIM(whole_det, beam, cryst, pdbfile)
         self.SIM_noSF = get_SIM(whole_det, beam, cryst)
-        self.ucell = self.SIM.crystal.dxtbx_crystal.get_unit_cell().parameters()
+        self.xtal = self.SIM.crystal.dxtbx_crystal
+        self.ucell = self.xtal.get_unit_cell().parameters()
         self.scaled_ucell = self.ucell
+        self.sg = self.xtal.get_space_group()
         self._load_params_only()
         self.percentile = 99.9
         self.image_mode = "rgb"
@@ -256,12 +259,38 @@ class SimView(tk.Frame):
             self._display()
 
     def _load_params_only(self):
-        """load params available only (don't pre-load images). Keys are filenames."""
+        """load params that can be adjusted"""
         self._VALUES = {}
         self._LABELS = {}
+        # generate a,b,c based on unit cell for the loaded pdb
+        params["a"] = [scale * self.ucell[0] for scale in params["ucell_scale"]]
+        params["b"] = [scale * self.ucell[1] for scale in params["ucell_scale"]]
+        params["c"] = [scale * self.ucell[2] for scale in params["ucell_scale"]]
+        del params["ucell_scale"]
+        # fill all defaults
         for dial, (_, _, _, _, default) in params.items():
             self._VALUES[dial] = default
             self._LABELS[dial] = self._get_new_label_part(dial, default)
+        # dependent on crystal symmetry: test if axes can be independently adjusted
+        a, b, c, al, be, ga = self.ucell
+        test_c = (a, b, c+10, al, be, ga)
+        test_b = (a, b+10, c, al, be, ga)
+        test_abc = (a*1.5, b*1.5, c*1.5, al, be, ga)
+        if not self.sg.is_compatible_unit_cell(unit_cell(test_c)):
+            del self._VALUES["c"]
+            del self._LABELS["c"]
+        if not self.sg.is_compatible_unit_cell(unit_cell(test_b)):
+            del self._VALUES["b"]
+            del self._LABELS["b"]
+        if not self.sg.is_compatible_unit_cell(unit_cell(test_abc)):
+            del self._VALUES["a"]
+            del self._LABELS["a"]
+        # if a,b,c remaining: all vary independently
+        # if a,b remaining: c scales with a
+        # if a,c remaining: b scales with a
+        # if b,c remaining: c scales with b
+        # if a remaining: a,b,c all vary together
+        self.dial_names = self._VALUES.keys()
 
     def _update_normalization(self):
         """update normalization"""
@@ -337,8 +366,22 @@ class SimView(tk.Frame):
         else:
             raise NotImplemented("Haven't implemented a spectrum of the requested shape {}".format(shape))
 
-    def _update_ucell(self, new_value):
-        a,b,c = [x*new_value for x in self.ucell[:3]]
+    def _update_ucell(self, dial, new_value):
+        # scale one or more lengths depending on symmetry
+        if dial == "a":
+            a = new_value
+            scale = new_value / self.ucell[0]
+            b = self.scaled_ucell[1] if "b" in self.dial_names else scale * self.ucell[1]
+            c = self.scaled_ucell[2] if "c" in self.dial_names else scale * self.ucell[2]
+        elif dial == "b":
+            a = self.scaled_ucell[0]
+            b = new_value
+            scale = new_value / self.ucell[1]
+            c = self.scaled_ucell[2] if "c" in self.dial_names else scale * self.ucell[2]
+        elif dial == "c":
+            a = self.scaled_ucell[0]
+            b = self.scaled_ucell[1]
+            c = new_value
         self.scaled_ucell = (a,b,c,*self.ucell[3:6])
 
     def _randomize_orientation(self, _press=None):
@@ -372,7 +415,7 @@ Energy/Bandwidth = {energy}/{bw}; Spectra: {spectra}; {Fhkl}; Brightness: {brigh
             gamma=self._LABELS["Diff_gamma"] if self.diffuse_scattering else "N/A",
             sigma=self._LABELS["Diff_sigma"] if self.diffuse_scattering else "N/A",
             aniso=self._LABELS["Aniso"] if self.diffuse_scattering else "N/A",
-            ucell=self._LABELS["ucell_scale"],
+            ucell=self._LABELS["ucell"], # updated when any of a,b,c are updated
             energy=self._LABELS["Energy"] if self.spectrum_shape in ["Gaussian", "monochromatic"] else "N/A",
             bw=self._LABELS["Bandwidth"] if self.spectrum_shape == "Gaussian" else "N/A",
             spectra=self.spectrum_shape,
@@ -394,9 +437,10 @@ Energy/Bandwidth = {energy}/{bw}; Spectra: {spectra}; {Fhkl}; Brightness: {brigh
             return "{:.2f}".format(new_value)
         elif dial == "Aniso":
             return "{:.2f}".format(new_value)
-        elif dial == "ucell_scale":
+        elif dial in ["a", "b", "c"]:
             a,b,c = self.scaled_ucell[:3]
-            return "{a:.2f}, {b:.2f}, {c:.2f}".format(a=a, b=b, c=c)
+            self._LABELS["ucell"] = "{a:.2f}, {b:.2f}, {c:.2f}".format(a=a, b=b, c=c)
+            return None
         elif dial == "Energy":
             return "{:d}".format(new_value)
         elif dial == "Bandwidth":
@@ -476,13 +520,14 @@ Energy/Bandwidth = {energy}/{bw}; Spectra: {spectra}; {Fhkl}; Brightness: {brigh
 
     def _set_new_value(self, dial, new_value):
         self._VALUES[dial] = new_value
-        self._LABELS[dial] = self._get_new_label_part(dial, new_value)
         if dial in ["Energy", "Bandwidth"]:
             self._update_spectrum()
-        elif dial == "ucell_scale":
-            self._update_ucell(new_value)
+        elif dial in ["a", "b", "c"]:
+            self._update_ucell(dial, new_value)
         elif dial == "Brightness":
             self._update_normalization()
+        # updating labels must happen after updating values for ucell
+        self._LABELS[dial] = self._get_new_label_part(dial, new_value)
         self._generate_image_data()
         self._display()
 
@@ -544,7 +589,7 @@ if __name__ == '__main__':
     params = {
         "MosDom":[6, 200, 2, 10, 10],
         "MosAngDeg":[0.0, 5, 0.1, 1.0, 0.3001],
-        "ucell_scale":[0.9, 1.1, 0.05, 0.1, 1],
+        "ucell_scale":[0.5, 2., 0.05, 0.1, 1],
         "Diff_gamma":[1, 1000, 1, 10, 50],
         "Diff_sigma":[.001, 5, .1, 1, .3001],
         "Aniso":[.01, 10, .01, .1, 1],
