@@ -25,7 +25,7 @@ import libtbx.load_env
 from sim_erice.on_the_fly_simdata import run_simdata, get_SIM, randomize_orientation
 from simtbx.nanoBragg.tst_nanoBragg_multipanel import beam, whole_det
 from simtbx.diffBragg import hopper_utils
-from LS49.spectra.generate_spectra import spectra_simulation
+from local_spectra import spectra_simulation
 from iotbx.crystal_symmetry_from_any import extract_from as extract_symmetry_from
 from iotbx.pdb.fetch import get_pdb
 from cctbx.uctbx import unit_cell
@@ -181,7 +181,7 @@ class SimView(tk.Frame):
         self.spectrum_shape = "Gaussian"
         self.SASE_sim = spectra_simulation()
         self.SASE_iter = self.SASE_sim.generate_recast_renormalized_images(
-            nlimit=100, energy=self._VALUES["Energy"], total_flux=1e12)
+            energy=self._VALUES["Energy"], total_flux=1e12)
         self._update_spectrum(new_pulse=True)
         self.diffuse_scattering = False
 
