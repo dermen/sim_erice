@@ -1,4 +1,4 @@
 {
-  "modules_required_for_use": ["simtbx", "LS49"],
+  "modules_required_for_use": ["simtbx"],
   "modules_required_for_build": [],
 }

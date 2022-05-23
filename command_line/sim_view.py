@@ -5,6 +5,7 @@ Derek Mendez, dermen@lbl.gov
 
 Generate and load simulated images on the fly
 Iris Young, idyoung@lbl.gov
+# LIBTBX_SET_DISPATCHER_NAME simtbx.sim_view
 """
 try:  # py2/3 compat 
     import Tkinter as tk
@@ -21,7 +22,7 @@ from matplotlib.backends.backend_tkagg import \
     FigureCanvasTkAgg, NavigationToolbar2Tk
 
 import libtbx.load_env
-from on_the_fly_simdata import run_simdata, get_SIM, randomize_orientation
+from sim_erice.on_the_fly_simdata import run_simdata, get_SIM, randomize_orientation
 from simtbx.nanoBragg.tst_nanoBragg_multipanel import beam, whole_det
 from simtbx.diffBragg import hopper_utils
 from LS49.spectra.generate_spectra import spectra_simulation
