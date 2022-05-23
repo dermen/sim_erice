@@ -141,11 +141,10 @@ Outside of this situation, the reference image will be identical to your
 starting default parameters and can be updated to current parameters by
 pressing "Update reference". This can help highlight the difference
 between selected combinations of parameters. Finally, the viewer has
-three display modes, one in which the reference image is displayed in red
+two display modes, one in which the reference image is displayed in red
 and the current simulation is displayed in blue (with perfect overlap
-resulting in white or gray), and two in which only the simulated image
-is visible, displayed in either color or grayscale. You can cycle between
-these modes with the "Toggle image mode" button.
+resulting in white or gray), and one in which only the simulation is
+shown. You can press "Show reference image" to switch between these.
 """
 
 class SimView(tk.Frame):
@@ -177,13 +176,13 @@ class SimView(tk.Frame):
         self.sg = self.xtal.get_space_group()
         self._load_params_only()
         self.percentile = 99.9
-        self.image_mode = "rgb"
+        self.image_mode = "overlay"
         self.spectrum_shape = "Gaussian"
         self.SASE_sim = spectra_simulation()
         self.SASE_iter = self.SASE_sim.generate_recast_renormalized_images(
             energy=self._VALUES["Energy"], total_flux=1e12)
         self._update_spectrum(new_pulse=True)
-        self.diffuse_scattering = False
+        self.diffuse_scattering = True
 
         fsize, ssize = whole_det[0].get_image_size()
         img_sh = 1,ssize, fsize
@@ -193,11 +192,11 @@ class SimView(tk.Frame):
         self.pan = self.pfs[0::3].as_numpy_array()
         self.img_ref = np.zeros((1, ssize, fsize))
         self.img_sim = np.zeros((1, ssize, fsize))
-        self.img_cmap = np.zeros((ssize, fsize))
-        self.img_rgb = np.zeros((ssize, fsize, 3))
+        self.img_overlay = np.zeros((ssize, fsize, 3))
+        self.img_single_channel = np.zeros((ssize, fsize, 3))
         self.start_ori = self.SIM.crystal.dxtbx_crystal.get_U()
         self._generate_image_data(update_ref=True)
-        self.img_rgb[:,:,0] = self._normalize_image_data(self.img_ref[0])
+        self.img_overlay[:,:,0] = self._normalize_image_data(self.img_ref[0])
 
         self._set_option_menu()
         self._make_master_label()
@@ -262,7 +261,7 @@ class SimView(tk.Frame):
         r.config(font=("Helvetica", 15))
         r.config(width=8)
 
-        i=tk.Button(_opt_frame, command=self._toggle_image_mode, text="Toggle image mode")
+        i=tk.Button(_opt_frame, command=self._toggle_image_mode, text="Show/hide reference")
         i.pack(side=tk.LEFT)
         i.config(font=("Helvetica", 15))
         i.config(width=18)
@@ -331,7 +330,7 @@ class SimView(tk.Frame):
         """update normalization"""
         exponent = self._VALUES["Brightness"]*2-2
         self.percentile = 100 - 10**exponent
-        self.img_rgb[:,:,0] = self._normalize_image_data(self.img_ref) # red channel
+        self.img_overlay[:,:,0] = self._normalize_image_data(self.img_ref) # red channel
 
     def _normalize_image_data(self, img_data):
         """scale data to [0,1] where variable %ile intensities and above are set to 1."""
@@ -367,10 +366,11 @@ class SimView(tk.Frame):
         self.img_sim[self.pan, self.slow, self.fast] = pix
         if update_ref:
             self.img_ref[self.pan, self.slow, self.fast] = pix
-            self.img_rgb[:,:,0] = self._normalize_image_data(self.img_ref[0]) # red channel
-        self.img_cmap = self._normalize_image_data(self.img_sim[0])
-        self.img_rgb[:,:,1] = self._normalize_image_data(self.img_sim[0] + self.img_ref[0]) # green channel (grayscale if identical)
-        self.img_rgb[:,:,2] = self._normalize_image_data(self.img_sim[0]) # blue channel
+        self.img_overlay[:,:,0] = self._normalize_image_data(self.img_ref[0]) # red channel
+        self.img_overlay[:,:,1] = self._normalize_image_data(self.img_sim[0] + self.img_ref[0]) # green channel (grayscale if identical)
+        self.img_overlay[:,:,2] = self._normalize_image_data(self.img_sim[0]) # blue channel
+        self.img_single_channel[:,:,1] = self._normalize_image_data(self.img_sim[0]) # green channel
+        self.img_single_channel[:,:,2] = self._normalize_image_data(self.img_sim[0]) # blue channel
 
     def _toggle_diffuse_scattering(self, _press=None):
         self.diffuse_scattering = not self.diffuse_scattering
@@ -490,17 +490,15 @@ Energy/Bandwidth = {energy}/{bw}; Spectra: {spectra}; {Fhkl}; Brightness: {brigh
     def _display(self, init=False):
         """display the current image"""
         if init:
-            if self.image_mode == "rgb":
-                self.aximg = self.ax.imshow(self.img_rgb)
-            elif self.image_mode == "cmap":
-                self.aximg = self.ax.imshow(self.img_cmap, cmap='magma')
+            if self.image_mode == "overlay":
+                self.aximg = self.ax.imshow(self.img_overlay)
             else:
-                self.aximg = self.ax.imshow(self.img_cmap, cmap='Greys_r')
+                self.aximg = self.ax.imshow(self.img_single_channel)
         else:
-            if self.image_mode == "rgb":
-                self.aximg.set_data(self.img_rgb)
+            if self.image_mode == "overlay":
+                self.aximg.set_data(self.img_overlay)
             else:
-                self.aximg.set_data(self.img_cmap)
+                self.aximg.set_data(self.img_single_channel)
 
         self._update_label()
         self.master_label.config(text=self._label)
@@ -509,9 +507,9 @@ Energy/Bandwidth = {energy}/{bw}; Spectra: {spectra}; {Fhkl}; Brightness: {brigh
         self.canvas.draw()
 
     def _toggle_image_mode(self, _press=None):
-        options = ["rgb", "cmap", "greyscale"]
+        options = ["overlay", "simulation"]
         current = options.index(self.image_mode)
-        self.image_mode = options[current-2]
+        self.image_mode = options[current-1]
         self._display(init=True)
 
     def bind(self):
@@ -528,7 +526,7 @@ Energy/Bandwidth = {energy}/{bw}; Spectra: {spectra}; {Fhkl}; Brightness: {brigh
         self.master.bind_all("<Right>", self._next_dial)
         self.master.bind_all("<n>", self._next_dial)
 
-        self.master.bind_all("<I>", self._toggle_image_mode) # toggle between RGB and colormap views
+        self.master.bind_all("<I>", self._toggle_image_mode) # toggle displaying reference image
         self.master.bind_all("<D>", self._toggle_diffuse_scattering) # toggle diffuses scattering on/off
         self.master.bind_all("<S>", self._toggle_spectrum_shape) # toggle between Gaussian, SASE and mono beam
         self.master.bind_all("<O>", self._randomize_orientation) # randomize crystal orientation
