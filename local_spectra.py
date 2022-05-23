@@ -87,7 +87,7 @@ class spectra_simulation:
 
       expected_energy = self.LF.m * self.R["expidx"][image] + self.LF.c + offset
       #print(image,"ebeam = %7.2f eV"%(expected_energy),"%5.1f%% of average pulse intensity"%(100.*
-        self.bk_subtracted_sum[image]/self.average_integrated))
+      # self.bk_subtracted_sum[image]/self.average_integrated))
       assert expected_energy > 0.
       channel_flux = flex.double(100) # 100 energy channels altogether
       channel_mean_eV = flex.double(range(100)) + energy - 49.5
