@@ -179,9 +179,7 @@ class SimView(tk.Frame):
         self.image_mode = "overlay"
         self.spectrum_shape = "Gaussian"
         self.SASE_sim = spectra_simulation()
-        self.SASE_iter = self.SASE_sim.generate_recast_renormalized_images(
-            energy=self._VALUES["Energy"], total_flux=1e12)
-        self._update_spectrum(new_pulse=True)
+        self._update_spectrum(init=True)
         self.diffuse_scattering = True
 
         fsize, ssize = whole_det[0].get_image_size()
@@ -381,11 +379,11 @@ class SimView(tk.Frame):
         options = ["Gaussian", "SASE", "monochromatic"]
         current = options.index(self.spectrum_shape)
         self.spectrum_shape = options[current-2]
-        self._update_spectrum(new_pulse=True)
+        self._update_spectrum(init=(self.spectrum_shape == "SASE"))
         self._generate_image_data()
         self._display()
 
-    def _update_spectrum(self, new_pulse=False):
+    def _update_spectrum(self, new_pulse=False, init=False):
         if self.spectrum_shape == "Gaussian":
             bw = 0.01*self._VALUES["Bandwidth"]*self._VALUES["Energy"] # bandwidth in eV
             gfunc = gaussian.term(1, 4 * math.log(2)/(bw**2)) # FWHM of bw, mu == 0
@@ -393,7 +391,10 @@ class SimView(tk.Frame):
                                 for energy in range(-50,51)]
             self.spectrum_Ang = [(12398./energy, flux) for (energy, flux) in self.spectrum_eV]
         elif self.spectrum_shape == "SASE":
-            if new_pulse:
+            if init:
+                self.SASE_iter = self.SASE_sim.generate_recast_renormalized_images(
+                    energy=self._VALUES["Energy"], total_flux=1e12)
+            if new_pulse or init:
                 self.pulse_energies_Ang, self.flux_list, self.avg_wavelength_Ang = next(self.SASE_iter)
             self.spectrum_Ang = list(zip(self.pulse_energies_Ang, self.flux_list))
         elif self.spectrum_shape == "monochromatic":
@@ -451,7 +452,7 @@ Energy/Bandwidth = {energy}/{bw}; Spectra: {spectra}; {Fhkl}; Brightness: {brigh
             sigma=self._LABELS["Diff_sigma"] if self.diffuse_scattering else "N/A",
             aniso=self._LABELS["Aniso"] if self.diffuse_scattering else "N/A",
             ucell=self._LABELS["ucell"], # updated when any of a,b,c are updated
-            energy=self._LABELS["Energy"] if self.spectrum_shape in ["Gaussian", "monochromatic"] else "N/A",
+            energy=self._LABELS["Energy"],
             bw=self._LABELS["Bandwidth"] if self.spectrum_shape == "Gaussian" else "N/A",
             spectra=self.spectrum_shape,
             rotx=self._LABELS["RotX"],
@@ -554,7 +555,7 @@ Energy/Bandwidth = {energy}/{bw}; Spectra: {spectra}; {Fhkl}; Brightness: {brigh
     def _set_new_value(self, dial, new_value):
         self._VALUES[dial] = new_value
         if dial in ["Energy", "Bandwidth"]:
-            self._update_spectrum()
+            self._update_spectrum(init=True)
         elif dial in ["a", "b", "c"]:
             self._update_ucell(dial, new_value)
         elif dial == "Brightness":
