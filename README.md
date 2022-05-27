@@ -8,18 +8,31 @@ Run without any arguments, this program simulates diffraction of a small lysozym
 
 Diffraction from your crystal will be simulated with a set of default parameters for mosaic block size, beam energy and bandpass, etc. that you can change by adjusting each of the dials. Parameters to be adjusted can be selected either with the drop-down menu or with keyboard shortcuts as follows:
 
+
 **Left arrow or p:**    previous parameter
+
 **Right arrow or n:**   next parameter
+
 **Up arrow:**           increase this parameter
+
 **Down arrow:**         decrease this parameter
+
 **Shift-up arrow:**     increase this parameter a lot
+
 **Shift-down arrow:**   decrease this parameter a lot
+
 **Space bar:**          simulate a new stochastic XFEL pulse
+
 **R:**                  reset all parameters to defaults
+
 **I:**                  toggle between image display modes
+
 **S:**                  toggle spectrum shape
+
 **O:**                  randomize crystal orientation
+
 **U:**                  update reference image (in red)
+
 
 (Note that matplotlib binds the left arrow key to resetting the field of view, so both this effect and selection of the previous parameter will take place if you are zoomed in on an area. The right arrow key can restore the zoom.)
 
