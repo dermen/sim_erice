@@ -119,7 +119,7 @@ constructive interference (the reciprocal lattice points in diffracting
 conditions, i.e. Bragg peaks). In order to better see the effects of the
 above parameters, we can ignore the Fourier transform of the asymmetric
 unit and pretend all of the Bragg peaks have uniform intensity. This is
-what we are simulating when we display "SFs on/off".
+what we are simulating when Fhkl is toggled "OFF".
 
 Diffuse scattering: this physical effect is a result of variation and
 imperfection within the crystal and surrounding solvent, and it appears
@@ -128,9 +128,11 @@ can be toggled on or off. It is recommended to use the monochromatic
 spectrum setting when calculating diffuse signal.
 
 Diff_gamma and diff_sigma: parameters describing the diffuse scattering
-signal. TODO: write more here after reading up on what these mean.
+signal produced by long-range correlations. Gamma denotes the correlation
+length in Ångstroms and sigma squared is the amplitude of the correlated
+vibrations in square Ångstroms.
 
-Aniso: anisotropic quality to the diffuse scattering. This is arbitrarily
+Diff_aniso: anisotropic quality to the diffuse scattering. This is arbitrarily
 assigned directionality, and the adjustible parameter controls the
 degree to which this effect is observed.
 
@@ -162,12 +164,13 @@ class SimView(tk.Frame):
         ucell = symmetry.unit_cell()
         fmat = matrix.sqr(ucell.fractionalization_matrix())
         cryst = Crystal(fmat, sg)
-        panel = whole_det[0]
-        s0 = beam.get_unit_s0()
-        fast = panel.get_fast_axis()
-        slow = panel.get_slow_axis()
+        self.panel = whole_det[0]
+        self.s0 = beam.get_unit_s0()
+        fast = self.panel.get_fast_axis()
+        slow = self.panel.get_slow_axis()
         offset_orig = (2, -24, -100.)
-        panel.set_frame(fast, slow, offset_orig)
+        self.panel.set_frame(fast, slow, offset_orig)
+        self.beam_center = self.panel.get_beam_centre_px(self.s0)
         self.SIM = get_SIM(whole_det, beam, cryst, pdbfile)
         self.SIM_noSF = get_SIM(whole_det, beam, cryst)
         self.xtal = self.SIM.crystal.dxtbx_crystal
@@ -176,11 +179,12 @@ class SimView(tk.Frame):
         self.sg = self.xtal.get_space_group()
         self._load_params_only()
         self.percentile = 99.9
-        self.image_mode = "overlay"
+        self.image_mode = "simulation"
         self.spectrum_shape = "Gaussian"
         self.SASE_sim = spectra_simulation()
         self._update_spectrum(init=True)
         self.diffuse_scattering = True
+        self.Fhkl = True
 
         fsize, ssize = whole_det[0].get_image_size()
         img_sh = 1,ssize, fsize
@@ -224,6 +228,13 @@ class SimView(tk.Frame):
             fill=tk.BOTH, expand=tk.YES)
 
 
+    def _annotate(self):
+        self.ax.plot(*self.beam_center,'y+')
+        def label_mouse_coords(x, y):
+            resol = self.panel.get_resolution_at_pixel(self.s0, (x, y))
+            return "({x}, {y}): {resol:.2f} Å".format(resol=resol, x=int(x), y=int(y))
+        self.ax.format_coord = label_mouse_coords
+
     def _init_fig(self):
         """ initialize the mpl fig"""
         self.fig = plt.figure(1)
@@ -242,8 +253,12 @@ class SimView(tk.Frame):
         _button_frame = tk.Frame(self.master)
         _button_frame.pack(side=tk.TOP, expand=tk.NO)
         
-        tk.Label( _opt_frame, text="Adjusting variable: ", 
+        tk.Label( _opt_frame, text="Adjusting variable: ",
             font=("Helvetica",15), width=16)\
+            .pack(side=tk.LEFT)
+
+        tk.Label( _button_frame, text="Toggles: ",
+            font=("Helvetica",15), width=8)\
             .pack(side=tk.LEFT)
 
         self.param_opt_menu = tk.OptionMenu(_opt_frame, 
@@ -259,22 +274,27 @@ class SimView(tk.Frame):
         r.config(font=("Helvetica", 15))
         r.config(width=8)
 
-        i=tk.Button(_opt_frame, command=self._toggle_image_mode, text="Show/hide reference")
+        i=tk.Button(_button_frame, command=self._toggle_image_mode, text="Reference image")
         i.pack(side=tk.LEFT)
         i.config(font=("Helvetica", 15))
-        i.config(width=18)
+        i.config(width=15)
 
-        d=tk.Button(_button_frame, command=self._toggle_diffuse_scattering, text="Toggle diffuse scattering")
+        f=tk.Button(_button_frame, command=self._toggle_Fhkl, text="Fhkl")
+        f.pack(side=tk.LEFT)
+        f.config(font=("Helvetica", 15))
+        f.config(width=5)
+
+        d=tk.Button(_button_frame, command=self._toggle_diffuse_scattering, text="Diffuse scattering")
         d.pack(side=tk.LEFT)
         d.config(font=("Helvetica", 15))
-        d.config(width=22)
+        d.config(width=16)
 
-        s=tk.Button(_button_frame, command=self._toggle_spectrum_shape, text="Toggle spectrum shape")
+        s=tk.Button(_button_frame, command=self._toggle_spectrum_shape, text="Spectrum shape")
         s.pack(side=tk.LEFT)
         s.config(font=("Helvetica", 15))
-        s.config(width=20)
+        s.config(width=15)
 
-        o=tk.Button(_button_frame, command=self._randomize_orientation, text="Randomize orientation")
+        o=tk.Button(_opt_frame, command=self._randomize_orientation, text="Randomize orientation")
         o.pack(side=tk.LEFT)
         o.config(font=("Helvetica", 15))
         o.config(width=20)
@@ -322,7 +342,7 @@ class SimView(tk.Frame):
         # if a,c remaining: b scales with a
         # if b,c remaining: c scales with b
         # if a remaining: a,b,c all vary together
-        self.dial_names = self._VALUES.keys()
+        self.dial_names = [n for n in self._VALUES.keys()]
 
     def _update_normalization(self):
         """update normalization"""
@@ -340,16 +360,16 @@ class SimView(tk.Frame):
     def _generate_image_data(self, update_ref=False):
         """generate image to match requested params"""
         # t = time.time()
-        SIM = self.SIM if self._VALUES["Fhkl"] else self.SIM_noSF
+        SIM = self.SIM if self.Fhkl else self.SIM_noSF
         diffuse_gamma = (
             self._VALUES["Diff_gamma"],
-            self._VALUES["Diff_gamma"] * self._VALUES["Aniso"],
-            self._VALUES["Diff_gamma"] / self._VALUES["Aniso"]
+            self._VALUES["Diff_gamma"] * self._VALUES["Diff_aniso"],
+            self._VALUES["Diff_gamma"] * self._VALUES["Diff_aniso"]
             ) if self.diffuse_scattering else None
         diffuse_sigma = (
             self._VALUES["Diff_sigma"],
-            self._VALUES["Diff_sigma"] * self._VALUES["Aniso"],
-            self._VALUES["Diff_sigma"] / self._VALUES["Aniso"]
+            self._VALUES["Diff_sigma"] * self._VALUES["Diff_aniso"],
+            self._VALUES["Diff_sigma"] * self._VALUES["Diff_aniso"]
             ) if self.diffuse_scattering else None
         pix = run_simdata(SIM, self.pfs, self.scaled_ucell,
             tuple([(x,x,x) for x in [self._VALUES["DomainSize"]]][0]),
@@ -372,6 +392,11 @@ class SimView(tk.Frame):
 
     def _toggle_diffuse_scattering(self, _press=None):
         self.diffuse_scattering = not self.diffuse_scattering
+        self._generate_image_data()
+        self._display()
+
+    def _toggle_Fhkl(self, _press=None):
+        self.Fhkl = not self.Fhkl
         self._generate_image_data()
         self._display()
 
@@ -436,21 +461,22 @@ class SimView(tk.Frame):
         """label that will be updated for each image"""
         self.master_label = tk.Label(self.master, text=\
 """DomainSize: ____; MosAngleDeg: ____; ____; a,b,c = ____;
-Missetting angles in degrees (X,Y,Z) = (____, ____}, ____);
-Diffuse gamma: ____, sigma: ____, anisotropy factor: ____;
+Missetting angles: (____, ____}, ____); Reference immage ____;
+Diffuse scattering ____; gamma: ____, sigma squared: ____, anisotropy factor: ____;
 Energy/Bandwidth= ____ / ____; Spectra: ____; ____; Brightness: ____""", font="Helvetica 15", width=350)
         self.master_label.pack(side=tk.TOP, expand=tk.NO)
 
     def _update_label(self):
         self._label = """Domain size: {mosdom}; Mosaic angle: {mosang}; {sigma}; a,b,c = {ucell};
-Missetting angles in degrees (X,Y,Z) = ({rotx}, {roty}, {rotz});
-Diffuse gamma: {gamma}, sigma: {sigma}, anisotropy factor: {aniso};
-Energy/Bandwidth = {energy}/{bw}; Spectra: {spectra}; {Fhkl}; Brightness: {bright}""".format(
+Missetting angles: ({rotx}, {roty}, {rotz}); Reference image {ref};
+Diffuse scattering {diff}; gamma: {gamma}, sigma squared: {sigma}, anisotropy factor: {aniso};
+Energy/Bandwidth = {energy}/{bw}; Spectra: {spectra}; Fhkl {Fhkl}; Brightness: {bright}""".format(
             mosdom=self._LABELS["DomainSize"],
             mosang=self._LABELS["MosAngDeg"],
+            diff="ON" if self.diffuse_scattering else "OFF",
             gamma=self._LABELS["Diff_gamma"] if self.diffuse_scattering else "N/A",
             sigma=self._LABELS["Diff_sigma"] if self.diffuse_scattering else "N/A",
-            aniso=self._LABELS["Aniso"] if self.diffuse_scattering else "N/A",
+            aniso=self._LABELS["Diff_aniso"] if self.diffuse_scattering else "N/A",
             ucell=self._LABELS["ucell"], # updated when any of a,b,c are updated
             energy=self._LABELS["Energy"],
             bw=self._LABELS["Bandwidth"] if self.spectrum_shape == "Gaussian" else "N/A",
@@ -458,7 +484,8 @@ Energy/Bandwidth = {energy}/{bw}; Spectra: {spectra}; {Fhkl}; Brightness: {brigh
             rotx=self._LABELS["RotX"],
             roty=self._LABELS["RotY"],
             rotz=self._LABELS["RotZ"],
-            Fhkl=self._LABELS["Fhkl"],
+            ref="ON" if self.image_mode == "overlay" else "OFF",
+            Fhkl="ON" if self.Fhkl else "OFF",
             bright=self._LABELS["Brightness"]
         )
 
@@ -471,7 +498,7 @@ Energy/Bandwidth = {energy}/{bw}; Spectra: {spectra}; {Fhkl}; Brightness: {brigh
             return "{}".format(new_value)
         elif dial == "Diff_sigma":
             return "{:.2f}".format(new_value)
-        elif dial == "Aniso":
+        elif dial == "Diff_aniso":
             return "{:.2f}".format(new_value)
         elif dial in ["a", "b", "c"]:
             a,b,c = self.scaled_ucell[:3]
@@ -482,7 +509,7 @@ Energy/Bandwidth = {energy}/{bw}; Spectra: {spectra}; {Fhkl}; Brightness: {brigh
         elif dial == "Bandwidth":
             return "{:.2f}%".format(new_value)
         elif dial in ["RotX", "RotY", "RotZ"]:
-            return "{:+.2f}".format(new_value)
+            return "{:+.2f}º".format(new_value)
         elif dial == "Fhkl":
             return "SFs {}".format("on" if new_value else "off")
         elif dial == "Brightness":
@@ -506,6 +533,7 @@ Energy/Bandwidth = {energy}/{bw}; Spectra: {spectra}; {Fhkl}; Brightness: {brigh
         self.master_label.config(font=("Courier", 15))
 
         self.canvas.draw()
+        self._annotate()
 
     def _toggle_image_mode(self, _press=None):
         options = ["overlay", "simulation"]
@@ -528,6 +556,7 @@ Energy/Bandwidth = {energy}/{bw}; Spectra: {spectra}; {Fhkl}; Brightness: {brigh
         self.master.bind_all("<n>", self._next_dial)
 
         self.master.bind_all("<I>", self._toggle_image_mode) # toggle displaying reference image
+        self.master.bind_all("<F>", self._toggle_Fhkl) # toggle using Fhkl to scale intensities
         self.master.bind_all("<D>", self._toggle_diffuse_scattering) # toggle diffuses scattering on/off
         self.master.bind_all("<S>", self._toggle_spectrum_shape) # toggle between Gaussian, SASE and mono beam
         self.master.bind_all("<O>", self._randomize_orientation) # randomize crystal orientation
@@ -538,7 +567,8 @@ Energy/Bandwidth = {energy}/{bw}; Spectra: {spectra}; {Fhkl}; Brightness: {brigh
             new_dial = self.dial_names[self.dial_names.index(self.current_dial) + 1]
             self._update_dial(new_dial)
         except IndexError:
-            pass
+            new_dial = self.dial_names[0]
+            self._update_dial(new_dial)
 
     def _prev_dial(self, tkevent):
         try:
@@ -616,7 +646,6 @@ if __name__ == '__main__':
             try:
                 pdbfile = get_pdb(pdbid, "pdb", "rcsb", log=sys.stdout, format="pdb")
             except Exception:
-                import pdb; pdb.set_trace()
                 print("Couldn't fetch pdb {}. Try fetching with iotbx.fetch_pdb.".format(pdbid))
                 exit()
         else:
@@ -636,19 +665,18 @@ if __name__ == '__main__':
         "ucell_scale":[0.5, 2., 0.05, 0.1, 1],
         "Diff_gamma":[1, 1000, 1, 10, 50],
         "Diff_sigma":[.001, 5, .1, 1, .3001],
-        "Aniso":[.01, 10, .01, .1, 1],
+        "Diff_aniso":[.01, 10, .01, .1, 1],
         "Energy":[6500, 12000, 10, 30, 9500],
         "Bandwidth":[0.01, 5.01, 0.1, 1, 0.31],
         "RotX": [-180, 180, 0.01, 0.1, 0],
         "RotY": [-180, 180, 0.01, 0.1, 0],
         "RotZ": [-180, 180, 0.01, 0.1, 0],
-        "Fhkl":[0, 1, 1, 1, 1], # binary switch
         "Brightness":[0, 2, 0.01, 0.1, 0.5]}
 
     root = tk.Tk()
     root.title("SimView")
 
-    root.geometry('940x500')
+    root.geometry('940x570')
     #root.resizable(0,0)
     
     frame = SimView(root, params, pdbfile)

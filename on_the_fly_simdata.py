@@ -121,6 +121,8 @@ def run_simdata(SIM, pfs, ucell_p, ncells_p, rot_p, spectrum=None, eta_p=None, G
     :param spectrum: spectrum object list of 2-tuples. each 2-tuple is (wavelength, intensity)
     :param eta_p: float value of rotational mosaicity parameter eta
     :param G: scale factor for bragg peaks (e.g. total crystal volume)
+    :param diffuse_gamma: 3-tuple of diffuse scattering param gammma
+    :param diffuse_sigma: 3-tuple of diffuse scattering param sigma
     :return: flex array of simulated pixel values (same length as len(lfs) / 3)
     """
 
