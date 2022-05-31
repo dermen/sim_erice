@@ -22,7 +22,7 @@ from matplotlib.backends.backend_tkagg import \
     FigureCanvasTkAgg, NavigationToolbar2Tk
 
 import libtbx.load_env
-from sim_erice.on_the_fly_simdata import run_simdata, get_SIM, randomize_orientation
+from sim_erice.on_the_fly_simdata import run_simdata, get_SIM, randomize_orientation, sweep
 from simtbx.nanoBragg.tst_nanoBragg_multipanel import beam, whole_det
 from simtbx.diffBragg import hopper_utils
 from sim_erice.local_spectra import spectra_simulation
@@ -185,6 +185,7 @@ class SimView(tk.Frame):
         self._update_spectrum(init=True)
         self.diffuse_scattering = True
         self.Fhkl = True
+        self.rotation = False
 
         fsize, ssize = whole_det[0].get_image_size()
         img_sh = 1,ssize, fsize
@@ -208,11 +209,13 @@ class SimView(tk.Frame):
         self._pack_canvas()
         self._reset()
         self._display(init=True)
+        self._refresh_dial_options()
 
         self.bind()
 
         # set the option menu first
         self.dial_choice.set(self.current_dial)
+        self.expt_choice.set("Serial (stills)")
 
 
     def _pack_canvas(self):
@@ -269,51 +272,104 @@ class SimView(tk.Frame):
         self.param_opt_menu.config(width=10)
         self.param_opt_menu.config(font=("Helvetica", 15))
 
-        r=tk.Button(_opt_frame, command=self._reset, text="Reset all")
-        r.pack(side=tk.LEFT)
-        r.config(font=("Helvetica", 15))
-        r.config(width=8)
+        self.reset_all_button=tk.Button(_opt_frame, command=self._reset, text="Reset all")
+        self.reset_all_button.pack(side=tk.LEFT)
+        self.reset_all_button.config(font=("Helvetica", 15))
+        self.reset_all_button.config(width=8)
 
-        i=tk.Button(_button_frame, command=self._toggle_image_mode, text="Reference image")
-        i.pack(side=tk.LEFT)
-        i.config(font=("Helvetica", 15))
-        i.config(width=15)
+        self.toggle_ref_img_button=tk.Button(_button_frame, command=self._toggle_image_mode, text="Reference image")
+        self.toggle_ref_img_button.pack(side=tk.LEFT)
+        self.toggle_ref_img_button.config(font=("Helvetica", 15))
+        self.toggle_ref_img_button.config(width=15)
 
-        f=tk.Button(_button_frame, command=self._toggle_Fhkl, text="Fhkl")
-        f.pack(side=tk.LEFT)
-        f.config(font=("Helvetica", 15))
-        f.config(width=5)
+        self.toggle_Fhkl_button=tk.Button(_button_frame, command=self._toggle_Fhkl, text="Fhkl")
+        self.toggle_Fhkl_button.pack(side=tk.LEFT)
+        self.toggle_Fhkl_button.config(font=("Helvetica", 15))
+        self.toggle_Fhkl_button.config(width=5)
 
-        d=tk.Button(_button_frame, command=self._toggle_diffuse_scattering, text="Diffuse scattering")
-        d.pack(side=tk.LEFT)
-        d.config(font=("Helvetica", 15))
-        d.config(width=16)
+        self.toggle_diffuse_button=tk.Button(_button_frame, command=self._toggle_diffuse_scattering, text="Diffuse scattering")
+        self.toggle_diffuse_button.pack(side=tk.LEFT)
+        self.toggle_diffuse_button.config(font=("Helvetica", 15))
+        self.toggle_diffuse_button.config(width=16)
 
-        s=tk.Button(_button_frame, command=self._toggle_spectrum_shape, text="Spectrum shape")
-        s.pack(side=tk.LEFT)
-        s.config(font=("Helvetica", 15))
-        s.config(width=15)
+        self.toggle_spectrum_button=tk.Button(_button_frame, command=self._toggle_spectrum_shape, text="Spectrum shape")
+        self.toggle_spectrum_button.pack(side=tk.LEFT)
+        self.toggle_spectrum_button.config(font=("Helvetica", 15))
+        self.toggle_spectrum_button.config(width=15)
 
-        o=tk.Button(_opt_frame, command=self._randomize_orientation, text="Randomize orientation")
-        o.pack(side=tk.LEFT)
-        o.config(font=("Helvetica", 15))
-        o.config(width=20)
+        self.expt_choice = tk.StringVar()
+        self.expt_choices = ['Serial (stills)', 'Rotation']
+        self.current_expt = 'Serial (stills)'
+        self.expt_type_menu = tk.OptionMenu(_button_frame,
+            self.expt_choice,
+            *self.expt_choices,
+            command=self._update_still_or_rot)
+        self.expt_type_menu.pack(side=tk.LEFT)
+        self.expt_type_menu.config(width=10)
+        self.expt_type_menu.config(font=("Helvetica", 15))
 
-        u=tk.Button(_opt_frame, command=self._update_reference, text="Update reference image")
-        u.pack(side=tk.LEFT)
-        u.config(font=("Helvetica", 15))
-        u.config(width=21)
+        self.randomize_orientation_button=tk.Button(_opt_frame, command=self._randomize_orientation, text="Randomize orientation")
+        self.randomize_orientation_button.pack(side=tk.LEFT)
+        self.randomize_orientation_button.config(font=("Helvetica", 15))
+        self.randomize_orientation_button.config(width=20)
 
-    def _update_dial(self, new_dial):
-        if new_dial != self.current_dial:
-            self.current_dial = new_dial
+        self.update_ref_image_button=tk.Button(_opt_frame, command=self._update_reference, text="Update reference image")
+        self.update_ref_image_button.pack(side=tk.LEFT)
+        self.update_ref_image_button.config(font=("Helvetica", 15))
+        self.update_ref_image_button.config(width=21)
+
+    def _update_dial(self):
+        if self.dial_choice.get() != self.current_dial:
+            self.current_dial = self.dial_choice.get()
             self.dial_choice.set(self.current_dial)
+            self._display()
+
+    def _refresh_dial_options(self):
+        if self.rotation:
+            dict_B = self._VALUES
+            dict_A = self._DISABLED_VALUES
+        else:
+            dict_B = self._DISABLED_VALUES
+            dict_A = self._VALUES
+        for key in ("Bandwidth", "RotX", "RotY"):
+            # move these from dict_B to dict_A
+            if key in dict_B.keys():
+                dict_A[key] = dict_B[key]
+                del dict_B[key]
+        for key in ("Delta_phi", "Image"):
+            # move these from dict_A to dict_B
+            if key in dict_A.keys():
+                dict_B[key] = dict_A[key]
+                del dict_A[key]
+        self.dial_names = [n for n in self.params_ordered_list if n in self._VALUES.keys()]
+        if self.dial_choice not in self.dial_names:
+            self.dial_choice.set(self.dial_names[0])
+            self.current_dial = self.dial_choice.get()
+        self.param_opt_menu['menu'].delete(0, 'end')
+        for name in self.dial_names:
+            self.param_opt_menu['menu'].add_command(label=name, command=tk._setit(
+                self.dial_choice, name, lambda event: self._update_dial()))
+
+    def _update_still_or_rot(self, new_choice):
+        if new_choice != self.current_expt:
+            self.current_expt = new_choice
+            self.expt_choice.set(self.current_expt)
+            self.rotation = (self.current_expt == "Rotation")
+            if self.rotation:
+                self.toggle_spectrum_button.config(state="disabled")
+                self.spectrum_shape = "monochromatic"
+            else:
+                self.toggle_spectrum_button.config(state="normal")
+            self._refresh_dial_options()
+            self._generate_image_data()
             self._display()
 
     def _load_params_only(self):
         """load params that can be adjusted"""
         self._VALUES = {}
+        self._DISABLED_VALUES = {}
         self._LABELS = {}
+        self.params_ordered_list = []
         # generate a,b,c based on unit cell for the loaded pdb
         params["a"] = [scale * self.ucell[0] for scale in params["ucell_scale"]]
         params["b"] = [scale * self.ucell[1] for scale in params["ucell_scale"]]
@@ -323,6 +379,7 @@ class SimView(tk.Frame):
         for dial, (_, _, _, _, default) in params.items():
             self._VALUES[dial] = default
             self._LABELS[dial] = self._get_new_label_part(dial, default)
+            self.params_ordered_list.append(dial)
         # dependent on crystal symmetry: test if axes can be independently adjusted
         a, b, c, al, be, ga = self.ucell
         test_c = (a, b, c+10, al, be, ga)
@@ -371,15 +428,30 @@ class SimView(tk.Frame):
             self._VALUES["Diff_sigma"] * self._VALUES["Diff_aniso"],
             self._VALUES["Diff_sigma"] * self._VALUES["Diff_aniso"]
             ) if self.diffuse_scattering else None
-        pix = run_simdata(SIM, self.pfs, self.scaled_ucell,
-            tuple([(x,x,x) for x in [self._VALUES["DomainSize"]]][0]),
-            (self._VALUES["RotX"]*math.pi/180.,
-            self._VALUES["RotY"]*math.pi/180.,
-            self._VALUES["RotZ"]*math.pi/180.),
-            spectrum=self.spectrum_Ang,
-            eta_p=self._VALUES["MosAngDeg"],
-            diffuse_gamma=diffuse_gamma,
-            diffuse_sigma=diffuse_sigma)
+        if self.rotation:
+            pix = sweep(SIM,
+                self._VALUES["Delta_phi"] * (self._VALUES["Image"] - 1), # phi_start
+                self._VALUES["Delta_phi"]/10., # phi step for simtbx
+                self._VALUES["Delta_phi"], # phi range summmed in one image
+                self.pfs, self.scaled_ucell,
+                tuple([(x,x,x) for x in [self._VALUES["DomainSize"]]][0]),
+                (0,
+                0,
+                self._VALUES["RotZ"]*math.pi/180.),
+                spectrum=self.spectrum_Ang,
+                eta_p=self._VALUES["MosAngDeg"],
+                diffuse_gamma=diffuse_gamma,
+                diffuse_sigma=diffuse_sigma)
+        else:
+            pix = run_simdata(SIM, self.pfs, self.scaled_ucell,
+                tuple([(x,x,x) for x in [self._VALUES["DomainSize"]]][0]),
+                (self._VALUES["RotX"]*math.pi/180.,
+                self._VALUES["RotY"]*math.pi/180.,
+                self._VALUES["RotZ"]*math.pi/180.),
+                spectrum=self.spectrum_Ang,
+                eta_p=self._VALUES["MosAngDeg"],
+                diffuse_gamma=diffuse_gamma,
+                diffuse_sigma=diffuse_sigma)
         # t = time.time()-t
         self.img_sim[self.pan, self.slow, self.fast] = pix
         if update_ref:
@@ -467,8 +539,20 @@ Energy/Bandwidth= ____ / ____; Spectra: ____; ____; Brightness: ____""", font="H
         self.master_label.pack(side=tk.TOP, expand=tk.NO)
 
     def _update_label(self):
+        if self.rotation:
+            missetting_or_deltaphi = "Delta phi: {delphi}, image #{img}, spindle missetting angle: {rotz}".format(
+                delphi=self._LABELS["Delta_phi"],
+                img=self._LABELS["Image"],
+                rotz=self._LABELS["RotZ"]
+                )
+        else:
+            missetting_or_deltaphi = "Missetting angles: ({rotx}, {roty}, {rotz})".format(
+                rotx=self._LABELS["RotX"],
+                roty=self._LABELS["RotY"],
+                rotz=self._LABELS["RotZ"]
+                )
         self._label = """Domain size: {mosdom}; Mosaic angle: {mosang}; {sigma}; a,b,c = {ucell};
-Missetting angles: ({rotx}, {roty}, {rotz}); Reference image {ref};
+{missetting_or_deltaphi}; Reference image {ref};
 Diffuse scattering {diff}; gamma: {gamma}, sigma squared: {sigma}, anisotropy factor: {aniso};
 Energy/Bandwidth = {energy}/{bw}; Spectra: {spectra}; Fhkl {Fhkl}; Brightness: {bright}""".format(
             mosdom=self._LABELS["DomainSize"],
@@ -481,9 +565,7 @@ Energy/Bandwidth = {energy}/{bw}; Spectra: {spectra}; Fhkl {Fhkl}; Brightness: {
             energy=self._LABELS["Energy"],
             bw=self._LABELS["Bandwidth"] if self.spectrum_shape == "Gaussian" else "N/A",
             spectra=self.spectrum_shape,
-            rotx=self._LABELS["RotX"],
-            roty=self._LABELS["RotY"],
-            rotz=self._LABELS["RotZ"],
+            missetting_or_deltaphi=missetting_or_deltaphi,
             ref="ON" if self.image_mode == "overlay" else "OFF",
             Fhkl="ON" if self.Fhkl else "OFF",
             bright=self._LABELS["Brightness"]
@@ -510,6 +592,10 @@ Energy/Bandwidth = {energy}/{bw}; Spectra: {spectra}; Fhkl {Fhkl}; Brightness: {
             return "{:.2f}%".format(new_value)
         elif dial in ["RotX", "RotY", "RotZ"]:
             return "{:+.2f}º".format(new_value)
+        elif dial == "Delta_phi":
+            return "{:.2f}º".format(new_value)
+        elif dial == "Image":
+            return "{}".format(new_value)
         elif dial == "Fhkl":
             return "SFs {}".format("on" if new_value else "off")
         elif dial == "Brightness":
@@ -671,12 +757,14 @@ if __name__ == '__main__':
         "RotX": [-180, 180, 0.01, 0.1, 0],
         "RotY": [-180, 180, 0.01, 0.1, 0],
         "RotZ": [-180, 180, 0.01, 0.1, 0],
+        "Delta_phi": [0.1, 5, 0.05, 0.5, 0.25],
+        "Image": [1, 100, 1, 10, 1],
         "Brightness":[0, 2, 0.01, 0.1, 0.5]}
 
     root = tk.Tk()
     root.title("SimView")
 
-    root.geometry('940x570')
+    root.geometry('960x570')
     #root.resizable(0,0)
     
     frame = SimView(root, params, pdbfile)

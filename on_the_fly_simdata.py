@@ -2,6 +2,8 @@
 from simtbx.diffBragg import utils
 from simtbx.nanoBragg import nanoBragg_crystal, nanoBragg_beam, sim_data
 import scitbx
+from scitbx.matrix import col, sqr
+from math import sin, cos
 import numpy as np
 from dials.array_family import flex
 
@@ -93,7 +95,26 @@ def randomize_orientation(SIM, seed_rand=32, seed_mersenne=0):
     SIM.crystal.dxtbx_crystal.set_U(ori)
     SIM.instantiate_diffBragg(oversample=1, device_Id=0, default_F=0)
 
-def run_simdata(SIM, pfs, ucell_p, ncells_p, rot_p, spectrum=None, eta_p=None, G=1, diffuse_gamma=None, diffuse_sigma=None):
+def sweep(SIM, phi_start, phistep, osc_deg, *args, **kwargs):
+    print("beginning sweep")
+    start_ori = SIM.crystal.dxtbx_crystal.get_U()
+    SIM.crystal.dxtbx_crystal.rotate_around_origin((0,-1,0), phi_start)
+    sum_pix = run_simdata(SIM, *args, **kwargs)
+    n_steps = int(osc_deg//phistep)
+    for step in range(1, n_steps):
+        print("step {s} of {n}...".format(s=step, n=n_steps))
+        # hard code spindle axis for now
+        SIM.crystal.dxtbx_crystal.rotate_around_origin((0,-1,0), phistep)
+        SIM.instantiate_diffBragg(oversample=1, device_Id=0, default_F=0)
+        pix = run_simdata(SIM, *args, **kwargs)
+        sum_pix += pix
+    # reset
+    print("finished sweep; resetting crystal orientation")
+    SIM.crystal.dxtbx_crystal.set_U(start_ori)
+    return sum_pix
+
+def run_simdata(SIM, pfs, ucell_p, ncells_p, rot_p, spectrum=None, eta_p=None, G=1,
+    diffuse_gamma=None, diffuse_sigma=None):
     """
 
     :param SIM: sim_data.SimData instance returned by get_SIM method
