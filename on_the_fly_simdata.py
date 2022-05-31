@@ -93,7 +93,8 @@ def randomize_orientation(SIM, seed_rand=32, seed_mersenne=0):
     site = scitbx.matrix.col(mersenne_twister.random_double_point_on_sphere())
     ori = site.axis_and_angle_as_r3_rotation_matrix(rot[0],deg=False)
     SIM.crystal.dxtbx_crystal.set_U(ori)
-    SIM.instantiate_diffBragg(oversample=1, device_Id=0, default_F=0)
+    #SIM.instantiate_diffBragg(oversample=1, device_Id=0, default_F=0)
+    SIM.D.Umatrix = ori
 
 def sweep(SIM, phi_start, phistep, osc_deg, *args, **kwargs):
     print("beginning sweep")
