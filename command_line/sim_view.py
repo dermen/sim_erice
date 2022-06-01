@@ -180,11 +180,11 @@ class SimView(tk.Frame):
         self._load_params_only()
         self.percentile = 99.9
         self.image_mode = "simulation"
-        self.spectrum_shape = "Gaussian"
+        self.spectrum_shape = "monochromatic"
         self.SASE_sim = spectra_simulation()
         self._update_spectrum(init=True)
-        self.diffuse_scattering = True
-        self.Fhkl = True
+        self.diffuse_scattering = False
+        self.Fhkl = False
         self.rotation = False
 
         fsize, ssize = whole_det[0].get_image_size()
