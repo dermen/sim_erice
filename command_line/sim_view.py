@@ -180,11 +180,13 @@ class SimView(tk.Frame):
         self._load_params_only()
         self.percentile = 99.9
         self.image_mode = "simulation"
-        self.spectrum_shape = "monochromatic"
+        self.spectrum_shape = "Gaussian"
         self.SASE_sim = spectra_simulation()
         self._update_spectrum(init=True)
+        self.spectrum_shape = "monochromatic"
+        self._update_spectrum(init=False)
         self.diffuse_scattering = False
-        self.Fhkl = False
+        self.Fhkl = True
         self.rotation = False
 
         fsize, ssize = whole_det[0].get_image_size()
@@ -419,14 +421,14 @@ class SimView(tk.Frame):
         # t = time.time()
         SIM = self.SIM if self.Fhkl else self.SIM_noSF
         diffuse_gamma = (
-            self._VALUES["Diff_gamma"],
             self._VALUES["Diff_gamma"] * self._VALUES["Diff_aniso"],
+            self._VALUES["Diff_gamma"],
             self._VALUES["Diff_gamma"] * self._VALUES["Diff_aniso"]
             ) if self.diffuse_scattering else None
         diffuse_sigma = (
-            self._VALUES["Diff_sigma"],
-            self._VALUES["Diff_sigma"] * self._VALUES["Diff_aniso"],
-            self._VALUES["Diff_sigma"] * self._VALUES["Diff_aniso"]
+            self._VALUES["Diff_sigma"]*self._VALUES["Diff_aniso"],
+            self._VALUES["Diff_sigma"]/self._VALUES["Diff_aniso"],
+            self._VALUES["Diff_sigma"]/self._VALUES["Diff_aniso"]
             ) if self.diffuse_scattering else None
         if self.rotation:
             pix = sweep(SIM,
@@ -475,7 +477,7 @@ class SimView(tk.Frame):
     def _toggle_spectrum_shape(self, _press=None):
         options = ["Gaussian", "SASE", "monochromatic"]
         current = options.index(self.spectrum_shape)
-        self.spectrum_shape = options[current-2]
+        self.spectrum_shape = options[(current+1)%3]
         self._update_spectrum(init=(self.spectrum_shape == "SASE"))
         self._generate_image_data()
         self._display()
@@ -751,7 +753,7 @@ if __name__ == '__main__':
         "ucell_scale":[0.5, 2., 0.05, 0.1, 1],
         "Diff_gamma":[1, 1000, 1, 10, 50],
         "Diff_sigma":[.001, 5, .1, 1, .1601],
-        "Diff_aniso":[.01, 10, .01, .1, 1],
+        "Diff_aniso":[.01, 10, .01, .1, 2],
         "Energy":[6500, 12000, 10, 30, 9500],
         "Bandwidth":[0.01, 5.01, 0.1, 1, 0.31],
         "RotX": [-180, 180, 0.01, 0.1, 0],
