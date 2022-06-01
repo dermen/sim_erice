@@ -183,8 +183,6 @@ class SimView(tk.Frame):
         self.spectrum_shape = "Gaussian"
         self.SASE_sim = spectra_simulation()
         self._update_spectrum(init=True)
-        self.spectrum_shape = "monochromatic"
-        self._update_spectrum(init=False)
         self.diffuse_scattering = False
         self.Fhkl = True
         self.rotation = False
