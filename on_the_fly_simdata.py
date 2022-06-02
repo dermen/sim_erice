@@ -8,7 +8,7 @@ import numpy as np
 from dials.array_family import flex
 
 
-def get_SIM(dxtbx_det, dxtbx_beam, dxtbx_cryst, Fcalc_pdb=None):
+def get_SIM(dxtbx_det, dxtbx_beam, dxtbx_cryst, Fcalc_pdb=None, defaultF=10):
     """
 
     :param dxtbx_det: detector object
@@ -43,7 +43,7 @@ def get_SIM(dxtbx_det, dxtbx_beam, dxtbx_cryst, Fcalc_pdb=None):
     else:
         symbol = dxtbx_cryst.get_space_group().info().type().lookup_symbol()
         ucell_p = dxtbx_cryst.get_unit_cell().parameters()
-        miller_data = utils.make_miller_array(symbol, ucell_p,defaultF=1000)
+        miller_data = utils.make_miller_array(symbol, ucell_p,defaultF=defaultF)
 
     crystal.symbol = miller_data.crystal_symmetry().space_group_info().type().lookup_symbol()
     crystal.miller_array = miller_data
