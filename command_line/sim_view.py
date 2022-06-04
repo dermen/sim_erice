@@ -769,7 +769,7 @@ if __name__ == '__main__':
     
     frame = SimView(root, params, pdbfile)
     
-    frame.pack( side=tk.TOP, expand=tk.YES)
+    frame.pack( side=tk.TOP, expand=tk.NO)
     root.mainloop()
 #
 
