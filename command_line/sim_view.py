@@ -17,6 +17,7 @@ import matplotlib as mpl
 mpl.use('TkAgg')
 import pylab as plt
 import os, math
+from scitbx.matrix import col, sqr
 
 from matplotlib.backends.backend_tkagg import \
     FigureCanvasTkAgg, NavigationToolbar2Tk
@@ -36,6 +37,7 @@ from dials.array_family import flex
 from libtbx import easy_pickle
 from random import randint
 import time
+from simtbx.diffBragg.utils import ENERGY_CONV
 
 help_message="""SimView: lightweight simulator and viewer for diffraction still images.
 
@@ -171,8 +173,12 @@ class SimView(tk.Frame):
         offset_orig = (2, -24, -100.)
         self.panel.set_frame(fast, slow, offset_orig)
         self.beam_center = self.panel.get_beam_centre_px(self.s0)
-        self.SIM = get_SIM(whole_det, beam, cryst, pdbfile)
-        self.SIM_noSF = get_SIM(whole_det, beam, cryst)
+
+        self.SIM = get_SIM(whole_det, beam, cryst, pdbfile, defaultF=0)
+        self._make_miller_lookup()  # make a dictionary for faster lookup
+        self.default_amp = np.median(self.SIM.crystal.miller_array.data())
+        self.SIM_noSF = get_SIM(whole_det, beam, cryst, defaultF=self.default_amp)
+
         self.xtal = self.SIM.crystal.dxtbx_crystal
         self.ucell = self.xtal.get_unit_cell().parameters()
         self.scaled_ucell = self.ucell
@@ -186,6 +192,7 @@ class SimView(tk.Frame):
         self.diffuse_scattering = False
         self.Fhkl = True
         self.rotation = False
+        self.track_hkl = True # display hkl for mouse location
 
         fsize, ssize = whole_det[0].get_image_size()
         img_sh = 1,ssize, fsize
@@ -218,6 +225,10 @@ class SimView(tk.Frame):
         self.expt_choice.set("Serial (stills)")
 
 
+    def _make_miller_lookup(self):
+        ma = self.SIM.crystal.miller_array
+        self.amplitude_lookup = {h:val for h,val in zip(ma.indices(), ma.data())}
+
     def _pack_canvas(self):
         """ embed the mpl figure"""
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.master) 
@@ -230,12 +241,47 @@ class SimView(tk.Frame):
         self.canvas.get_tk_widget().pack(side=tk.TOP, 
             fill=tk.BOTH, expand=tk.YES)
 
+    def _get_miller_index_at_mouse(self, x,y):
+        t = time.time()
+        U = sqr(self.SIM.D.Umatrix)
+        B = sqr(self.SIM.D.Bmatrix)
+        A = U*B
+        A_real = A.inverse()
+
+        xmm, ymm = self.panel.pixel_to_millimeter((x,y))
+        s = np.array(self.panel.get_lab_coord((xmm, ymm)))
+        s /= np.linalg.norm(s)
+        s0 = np.array(self.SIM.beam.nanoBragg_constructor_beam.get_unit_s0())
+        wavelen = ENERGY_CONV / self._VALUES["Energy"]
+        q = col( (s-s0) / wavelen )
+        hkl_f = np.array(A_real*q) 
+        hkl_i = np.ceil(hkl_f-0.5)
+        t = time.time()-t
+        return hkl_f, hkl_i
+
 
     def _annotate(self):
         self.ax.plot(*self.beam_center,'y+')
         def label_mouse_coords(x, y):
             resol = self.panel.get_resolution_at_pixel(self.s0, (x, y))
-            return "({x}, {y}): {resol:.2f} Å".format(resol=resol, x=int(x), y=int(y))
+
+            H_str = ""
+            if self.track_hkl:
+                hkl_f, hkl_i = self._get_miller_index_at_mouse(x,y)
+                hkl_dist = np.sqrt(np.sum((hkl_f-hkl_i)**2))
+
+                hkl_key = tuple(hkl_i.astype(int))
+                if self.Fhkl and hkl_key in self.amplitude_lookup:
+                    amp = self.amplitude_lookup[hkl_key]
+                elif self.Fhkl:
+                    amp = 0
+                else:
+                    amp = self.default_amp
+
+                hkl_f_str = ", ".join(map(lambda x: "%.2f"%x, hkl_f))
+                hkl_i_str = ", ".join(map(lambda x: "%d"%x, hkl_i))
+                H_str = "hf,kf,lf=({Hf}); h,k,l=({Hi}), |Hdist|={dH:.3f}, |F|={F:.6f}\n".format(Hf=hkl_f_str, Hi=hkl_i_str, F=amp, dH=hkl_dist)
+            return H_str+"({x}, {y}): {resol:.2f} Å".format(resol=resol, x=int(x), y=int(y))
         self.ax.format_coord = label_mouse_coords
 
     def _init_fig(self):
@@ -714,9 +760,15 @@ Energy/Bandwidth = {energy}/{bw}; Spectra: {spectra}; Fhkl {Fhkl}; Brightness: {
             default_value = self.params[dial][4]
             self._VALUES[dial] = default_value
             self._LABELS[dial] = self._get_new_label_part(dial, default_value)
+
         for SIM in (self.SIM, self.SIM_noSF):
             SIM.crystal.dxtbx_crystal.set_U(self.start_ori)
-            SIM.instantiate_diffBragg(oversample=1, device_Id=0, default_F=0)
+            # TODO: if we really need to reinstantiate, then should call the free methods to avoid memory leaks
+            # hopper_utils.free_SIM_mem(SIM)
+            #SIM.instantiate_diffBragg(oversample=1, device_Id=0, default_F=0)  # btw, defaultF will be different for SIM_noSF (1000)
+
+            # however, it seems maybe just resetting the Umat is necessary
+            SIM.D.Umatrix = self.start_ori
         self._generate_image_data(update_ref=True)
         self._display(init=True)
 
