@@ -241,25 +241,32 @@ class SimView(tk.Frame):
         self.canvas.get_tk_widget().pack(side=tk.TOP, 
             fill=tk.BOTH, expand=tk.YES)
 
-    def _get_miller_index_at_mouse(self, x,y):
-        t = time.time()
-        U = sqr(self.SIM.D.Umatrix)
+    def _get_miller_index_at_mouse(self, x,y,rot_p): 
+        t = time.time()                                                        
+        U = sqr(self.SIM.D.Umatrix)                                            
+        xx = col((-1, 0, 0))
+        yy = col((0, -1, 0))
+        zz = col((0, 0, -1))
+        RX = xx.axis_and_angle_as_r3_rotation_matrix(rot_p[0], deg=False)
+        RY = yy.axis_and_angle_as_r3_rotation_matrix(rot_p[1], deg=False)
+        RZ = zz.axis_and_angle_as_r3_rotation_matrix(rot_p[2], deg=False)
+        M = RX * RY * RZ
+        rotated_U = M*U
         B = sqr(self.SIM.D.Bmatrix)
-        A = U*B
+        A = rotated_U*B
         A_real = A.inverse()
-
         xmm, ymm = self.panel.pixel_to_millimeter((x,y))
         s = np.array(self.panel.get_lab_coord((xmm, ymm)))
         s /= np.linalg.norm(s)
         s0 = np.array(self.SIM.beam.nanoBragg_constructor_beam.get_unit_s0())
         wavelen = ENERGY_CONV / self._VALUES["Energy"]
         q = col( (s-s0) / wavelen )
-        hkl_f = np.array(A_real*q) 
+        hkl_f = np.array(A_real*q)
         hkl_i = np.ceil(hkl_f-0.5)
         t = time.time()-t
+ 
         return hkl_f, hkl_i
-
-
+    
     def _annotate(self):
         self.ax.plot(*self.beam_center,'y+')
         def label_mouse_coords(x, y):
@@ -267,7 +274,7 @@ class SimView(tk.Frame):
 
             H_str = ""
             if self.track_hkl:
-                hkl_f, hkl_i = self._get_miller_index_at_mouse(x,y)
+                hkl_f, hkl_i = self._get_miller_index_at_mouse(x,y,(self._VALUES["RotX"]*math.pi/180.,self._VALUES["RotY"]*math.pi/180.,self._VALUES["RotZ"]*math.pi/180.))
                 hkl_dist = np.sqrt(np.sum((hkl_f-hkl_i)**2))
 
                 hkl_key = tuple(hkl_i.astype(int))
