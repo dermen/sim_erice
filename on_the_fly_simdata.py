@@ -1,6 +1,7 @@
 
 from simtbx.diffBragg import utils
 from simtbx.nanoBragg import nanoBragg_crystal, nanoBragg_beam, sim_data
+from iotbx.crystal_symmetry_from_any import extract_from as extract_symmetry_from
 import scitbx
 from scitbx.matrix import col, sqr
 from math import sin, cos
@@ -8,7 +9,7 @@ import numpy as np
 from dials.array_family import flex
 
 
-def get_SIM(dxtbx_det, dxtbx_beam, dxtbx_cryst, Fcalc_pdb=None, defaultF=10):
+def get_SIM(dxtbx_det, dxtbx_beam, dxtbx_cryst, Fcalc_pdb=None, defaultF=10, SF=True):
     """
 
     :param dxtbx_det: detector object
@@ -33,13 +34,19 @@ def get_SIM(dxtbx_det, dxtbx_beam, dxtbx_cryst, Fcalc_pdb=None, defaultF=10):
     crystal.mos_spread_deg = 1
 
     if Fcalc_pdb is not None:
-        miller_data = utils.get_complex_fcalc_from_pdb(Fcalc_pdb,
-            dmin=1,
-            dmax=999,
-            wavelength=dxtbx_beam.get_wavelength(),
-            k_sol=.5,
-            b_sol=50)
-        miller_data = miller_data.as_amplitude_array()
+        if SF:
+            miller_data = utils.get_complex_fcalc_from_pdb(Fcalc_pdb,
+                dmin=1,
+                dmax=999,
+                wavelength=dxtbx_beam.get_wavelength(),
+                k_sol=.5,
+                b_sol=50)
+            miller_data = miller_data.as_amplitude_array()
+        else:
+            symmetry = extract_symmetry_from(Fcalc_pdb)
+            sg = str(symmetry.space_group_info())
+            ucell_p = symmetry.unit_cell()
+            miller_data = utils.make_miller_array(sg, ucell_p,defaultF=defaultF)
     else:
         symbol = dxtbx_cryst.get_space_group().info().type().lookup_symbol()
         ucell_p = dxtbx_cryst.get_unit_cell().parameters()

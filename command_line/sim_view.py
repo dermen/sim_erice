@@ -164,7 +164,7 @@ class SimView(tk.Frame):
         symmetry = extract_symmetry_from(pdbfile)
         sg = str(symmetry.space_group_info())
         ucell = symmetry.unit_cell()
-        fmat = matrix.sqr(ucell.fractionalization_matrix())
+        fmat = matrix.sqr(ucell.fractionalization_matrix()).transpose()
         cryst = Crystal(fmat, sg)
         self.panel = whole_det[0]
         self.s0 = beam.get_unit_s0()
@@ -177,7 +177,7 @@ class SimView(tk.Frame):
         self.SIM = get_SIM(whole_det, beam, cryst, pdbfile, defaultF=0)
         self._make_miller_lookup()  # make a dictionary for faster lookup
         self.default_amp = np.median(self.SIM.crystal.miller_array.data())
-        self.SIM_noSF = get_SIM(whole_det, beam, cryst, defaultF=self.default_amp)
+        self.SIM_noSF = get_SIM(whole_det, beam, cryst, pdbfile, defaultF=self.default_amp, SF=False)
 
         self.xtal = self.SIM.crystal.dxtbx_crystal
         self.ucell = self.xtal.get_unit_cell().parameters()
