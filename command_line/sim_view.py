@@ -37,7 +37,7 @@ from dials.array_family import flex
 from libtbx import easy_pickle
 from random import randint
 import time
-from simtbx.diffBragg.utils import ENERGY_CONV
+from simtbx.diffBragg.utils import ENERGY_CONV, get_laue_group_number
 
 help_message="""SimView: lightweight simulator and viewer for diffraction still images.
 
@@ -175,7 +175,7 @@ class SimView(tk.Frame):
         self.beam_center = self.panel.get_beam_centre_px(self.s0)
 
         self.SIM = get_SIM(whole_det, beam, cryst, pdbfile, defaultF=0)
-        self.SIM.D.laue_group_num = hopper_utils.get_laue_group_number(str(symmetry.space_group_info()))
+        self.SIM.D.laue_group_num = get_laue_group_number(str(symmetry.space_group_info()))
         self.SIM.D.stencil_size = 1
         self._make_miller_lookup()  # make a dictionary for faster lookup
         self.default_amp = np.median(self.SIM.crystal.miller_array.data())
