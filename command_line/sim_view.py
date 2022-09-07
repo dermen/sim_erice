@@ -561,10 +561,20 @@ class SimView(tk.Frame):
             self.SIM.D.mosaic_domains = 1
             self.stored_spectrum_shape = self.spectrum_shape
             self.spectrum_shape = "monochromatic"
+            self.stored_params = {
+                "RotX":[self.params["RotX"][2],self.params["RotX"][3]],
+                "RotY":[self.params["RotY"][2],self.params["RotY"][3]],
+                "RotZ":[self.params["RotZ"][2],self.params["RotZ"][3]]}
+            self.params["RotX"][2:4] = [0.1,1.]
+            self.params["RotY"][2:4] = [0.1,1.]
+            self.params["RotZ"][2:4] = [0.1,1.]
             self._update_spectrum()
         else:
             self.SIM.D.mosaic_domains = 10
             self.spectrum_shape = self.stored_spectrum_shape
+            self.params["RotX"][2:4] = self.stored_params["RotX"]
+            self.params["RotY"][2:4] = self.stored_params["RotY"]
+            self.params["RotZ"][2:4] = self.stored_params["RotZ"]
             self._update_spectrum()
         self._generate_image_data()
         self._display()
@@ -863,9 +873,9 @@ if __name__ == '__main__':
         "Diff_aniso":[.01, 10, .1, 1, 3],
         "Energy":[6500, 12000, 10, 30, 9500],
         "Bandwidth":[0.01, 5.01, 0.1, 1, 0.31],
-        "RotX": [-180, 180, 0.1, 1., 0],
-        "RotY": [-180, 180, 0.1, 1., 0],
-        "RotZ": [-180, 180, 0.1, 1., 0],
+        "RotX": [-180, 180, 0.01, 0.1, 0],
+        "RotY": [-180, 180, 0.01, 0.1, 0],
+        "RotZ": [-180, 180, 0.01, 0.1, 0],
         "Delta_phi": [0.1, 5, 0.05, 0.5, 0.25],
         "Image": [1, 100, 1, 10, 1],
         "Brightness":[0, 2, 0.01, 0.1, 0.5]}
