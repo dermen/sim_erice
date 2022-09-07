@@ -37,7 +37,7 @@ from dials.array_family import flex
 from libtbx import easy_pickle
 from random import randint
 import time
-from simtbx.diffBragg.utils import ENERGY_CONV
+from simtbx.diffBragg.utils import ENERGY_CONV, get_laue_group_number
 
 help_message="""SimView: lightweight simulator and viewer for diffraction still images.
 
@@ -175,6 +175,8 @@ class SimView(tk.Frame):
         self.beam_center = self.panel.get_beam_centre_px(self.s0)
 
         self.SIM = get_SIM(whole_det, beam, cryst, pdbfile, defaultF=0)
+        self.SIM.D.laue_group_num = get_laue_group_number(str(symmetry.space_group_info()))
+        self.SIM.D.stencil_size = 1
         self._make_miller_lookup()  # make a dictionary for faster lookup
         self.default_amp = np.median(self.SIM.crystal.miller_array.data())
         self.SIM_noSF = get_SIM(whole_det, beam, cryst, pdbfile, defaultF=self.default_amp, SF=False)
@@ -241,9 +243,9 @@ class SimView(tk.Frame):
         self.canvas.get_tk_widget().pack(side=tk.TOP, 
             fill=tk.BOTH, expand=tk.YES)
 
-    def _get_miller_index_at_mouse(self, x,y,rot_p): 
-        t = time.time()                                                        
-        U = sqr(self.SIM.D.Umatrix)                                            
+    def _get_miller_index_at_mouse(self, x,y,rot_p):
+        t = time.time()
+        U = sqr(self.SIM.D.Umatrix)
         xx = col((-1, 0, 0))
         yy = col((0, -1, 0))
         zz = col((0, 0, -1))
@@ -255,17 +257,50 @@ class SimView(tk.Frame):
         B = sqr(self.SIM.D.Bmatrix)
         A = rotated_U*B
         A_real = A.inverse()
+
         xmm, ymm = self.panel.pixel_to_millimeter((x,y))
         s = np.array(self.panel.get_lab_coord((xmm, ymm)))
         s /= np.linalg.norm(s)
         s0 = np.array(self.SIM.beam.nanoBragg_constructor_beam.get_unit_s0())
         wavelen = ENERGY_CONV / self._VALUES["Energy"]
         q = col( (s-s0) / wavelen )
-        hkl_f = np.array(A_real*q)
-        hkl_i = np.ceil(hkl_f-0.5)
+        hkl_f = np.array(A_real*q) 
+        hkl_i = np.ceil(hkl_f - 0.5)
         t = time.time()-t
- 
+
         return hkl_f, hkl_i
+
+    def _get_diffuse_gamma_portion(self,hkl_f,hkl_i,rot_p):
+        U = sqr(self.SIM.D.Umatrix)
+        xx = col((-1, 0, 0))
+        yy = col((0, -1, 0))
+        zz = col((0, 0, -1))
+        RX = xx.axis_and_angle_as_r3_rotation_matrix(rot_p[0], deg=False)
+        RY = yy.axis_and_angle_as_r3_rotation_matrix(rot_p[1], deg=False)
+        RZ = zz.axis_and_angle_as_r3_rotation_matrix(rot_p[2], deg=False)
+        M = RX * RY * RZ
+        rotated_U = M*U
+        B = sqr(self.SIM.D.Bmatrix)
+        A = rotated_U*B
+        A_real = A.inverse()
+
+        _hkl_f = col(hkl_f)
+        _hkl_i = col(hkl_i)
+
+        gamma_values = (
+            self._VALUES["Diff_gamma"] * self._VALUES["Diff_aniso"],
+            self._VALUES["Diff_gamma"],
+            self._VALUES["Diff_gamma"] * self._VALUES["Diff_aniso"]
+        )
+
+        gamma = sqr((gamma_values[0],0,0,0,gamma_values[1],0,0,0,gamma_values[2]))
+        delta_Q = A * (_hkl_f - _hkl_i)
+        anisoG_q = gamma*delta_Q
+        V_dot_V = anisoG_q.dot(anisoG_q)
+        gamma_portion_denom = (1.+V_dot_V * 4.*np.pi*np.pi)
+        gamma_portion_denom *= gamma_portion_denom
+        gamma_portion = 8.*np.pi*gamma.determinant()/gamma_portion_denom
+        return gamma_portion
     
     def _annotate(self):
         self.ax.plot(*self.beam_center,'y+')
@@ -274,7 +309,8 @@ class SimView(tk.Frame):
 
             H_str = ""
             if self.track_hkl:
-                hkl_f, hkl_i = self._get_miller_index_at_mouse(x,y,(self._VALUES["RotX"]*math.pi/180.,self._VALUES["RotY"]*math.pi/180.,self._VALUES["RotZ"]*math.pi/180.))
+                rot_p = (self._VALUES["RotX"]*math.pi/180.,self._VALUES["RotY"]*math.pi/180.,self._VALUES["RotZ"]*math.pi/180.)
+                hkl_f, hkl_i = self._get_miller_index_at_mouse(x,y,rot_p)
                 hkl_dist = np.sqrt(np.sum((hkl_f-hkl_i)**2))
 
                 hkl_key = tuple(hkl_i.astype(int))
@@ -287,7 +323,10 @@ class SimView(tk.Frame):
 
                 hkl_f_str = ", ".join(map(lambda x: "%.2f"%x, hkl_f))
                 hkl_i_str = ", ".join(map(lambda x: "%d"%x, hkl_i))
-                H_str = "hf,kf,lf=({Hf}); h,k,l=({Hi}), |Hdist|={dH:.3f}, |F|={F:.6f}\n".format(Hf=hkl_f_str, Hi=hkl_i_str, F=amp, dH=hkl_dist)
+                H_str = "hf,kf,lf=({Hf}) |Hdist|={dH:.3f} |F|={F:.6f} Value={Value:.6f}\n".format(Hf=hkl_f_str, Hi=hkl_i_str, F=amp, dH=hkl_dist, Value=self.img_sim[0,int(y),int(x)])
+                if self.diffuse_scattering:
+                    gamma_portion = self._get_diffuse_gamma_portion(hkl_f,hkl_i,rot_p)
+                    H_str = H_str.rstrip() + " G(q)={diff_fac:.6f}\n".format(diff_fac=gamma_portion)
             return H_str+"({x}, {y}): {resol:.2f} Å".format(resol=resol, x=int(x), y=int(y))
         self.ax.format_coord = label_mouse_coords
 
@@ -476,10 +515,11 @@ class SimView(tk.Frame):
             self._VALUES["Diff_gamma"],
             self._VALUES["Diff_gamma"] * self._VALUES["Diff_aniso"]
             ) if self.diffuse_scattering else None
+        ds = self._VALUES["Diff_sigma"]
         diffuse_sigma = (
-            self._VALUES["Diff_sigma"]*self._VALUES["Diff_aniso"],
-            self._VALUES["Diff_sigma"]/self._VALUES["Diff_aniso"],
-            self._VALUES["Diff_sigma"]/self._VALUES["Diff_aniso"]
+            ds*ds*self._VALUES["Diff_aniso"],
+            ds*ds,
+            ds*ds
             ) if self.diffuse_scattering else None
         if self.rotation:
             pix = sweep(SIM,
@@ -517,6 +557,25 @@ class SimView(tk.Frame):
 
     def _toggle_diffuse_scattering(self, _press=None):
         self.diffuse_scattering = not self.diffuse_scattering
+        if self.diffuse_scattering:
+            self.SIM.D.mosaic_domains = 1
+            self.stored_spectrum_shape = self.spectrum_shape
+            self.spectrum_shape = "monochromatic"
+            self.stored_params = {
+                "RotX":[self.params["RotX"][2],self.params["RotX"][3]],
+                "RotY":[self.params["RotY"][2],self.params["RotY"][3]],
+                "RotZ":[self.params["RotZ"][2],self.params["RotZ"][3]]}
+            self.params["RotX"][2:4] = [0.1,1.]
+            self.params["RotY"][2:4] = [0.1,1.]
+            self.params["RotZ"][2:4] = [0.1,1.]
+            self._update_spectrum()
+        else:
+            self.SIM.D.mosaic_domains = 10
+            self.spectrum_shape = self.stored_spectrum_shape
+            self.params["RotX"][2:4] = self.stored_params["RotX"]
+            self.params["RotY"][2:4] = self.stored_params["RotY"]
+            self.params["RotZ"][2:4] = self.stored_params["RotZ"]
+            self._update_spectrum()
         self._generate_image_data()
         self._display()
 
@@ -526,12 +585,13 @@ class SimView(tk.Frame):
         self._display()
 
     def _toggle_spectrum_shape(self, _press=None):
-        options = ["Gaussian", "SASE", "monochromatic"]
-        current = options.index(self.spectrum_shape)
-        self.spectrum_shape = options[(current+1)%3]
-        self._update_spectrum(init=(self.spectrum_shape == "SASE"))
-        self._generate_image_data()
-        self._display()
+        if not self.diffuse_scattering:
+            options = ["Gaussian", "SASE", "monochromatic"]
+            current = options.index(self.spectrum_shape)
+            self.spectrum_shape = options[(current+1)%3]
+            self._update_spectrum(init=(self.spectrum_shape == "SASE"))
+            self._generate_image_data()
+            self._display()
 
     def _update_spectrum(self, new_pulse=False, init=False):
         if self.spectrum_shape == "Gaussian":
@@ -808,9 +868,9 @@ if __name__ == '__main__':
         "DomainSize":[6, 200, 2, 10, 30],
         "MosAngDeg":[0.01, 5, 0.01, 0.1, 0.1001],
         "ucell_scale":[0.5, 2., 0.05, 0.1, 1],
-        "Diff_gamma":[1, 1000, 1, 10, 50],
-        "Diff_sigma":[.001, 5, .1, 1, .1601],
-        "Diff_aniso":[.01, 10, .01, .1, 2],
+        "Diff_gamma":[1, 300, 1, 10, 50],
+        "Diff_sigma":[.01, 0.7, .01, 0.05, .4],
+        "Diff_aniso":[.01, 10, .1, 1, 3],
         "Energy":[6500, 12000, 10, 30, 9500],
         "Bandwidth":[0.01, 5.01, 0.1, 1, 0.31],
         "RotX": [-180, 180, 0.01, 0.1, 0],
