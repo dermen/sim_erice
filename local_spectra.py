@@ -5,8 +5,7 @@ import os
 import libtbx.load_env
 
 def get_results():
-  data_file = libtbx.env.find_in_repositories(relative_path="sim_erice/spectra.pickle",
-            test=os.path.isfile)
+  data_file = os.path.join(libtbx.env.dist_path("sim_erice"), "spectra.pickle")
   R = pickle.load(open(data_file,"rb"))
   return R
 
