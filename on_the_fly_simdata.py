@@ -108,8 +108,8 @@ def sweep(SIM, phi_start, phistep, osc_deg, *args, **kwargs):
     start_ori = SIM.crystal.dxtbx_crystal.get_U()
     SIM.crystal.dxtbx_crystal.rotate_around_origin((0,-1,0), phi_start)
     sum_pix = run_simdata(SIM, *args, **kwargs)
-    n_steps = int(osc_deg//phistep)
-    for step in range(1, n_steps):
+    n_steps = int(osc_deg/phistep)
+    for step in range(1, n_steps+1):
         print("step {s} of {n}...".format(s=step, n=n_steps))
         # hard code spindle axis for now
         SIM.crystal.dxtbx_crystal.rotate_around_origin((0,-1,0), phistep)
