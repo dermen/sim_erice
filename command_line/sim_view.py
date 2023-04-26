@@ -61,7 +61,6 @@ Shift-down arrow:   decrease this parameter a lot
 Space bar:          simulate a new stochastic XFEL pulse
 R:                  reset all parameters to defaults
 I:                  toggle between image display modes
-S:                  toggle spectrum shape
 O:                  randomize crystal orientation
 U:                  update reference image (in red)
 
@@ -107,7 +106,7 @@ Spectrum shape: to simulate images with real SASE spectra, toggle this
 option to "SASE". To display diffraction produced by a smooth Gaussian
 function that can be adjusted in energy and bandwidth, toggle this to
 "Gaussian". SASE spectra are stochastic and will intentionally not be
-modified by the energy and bandwidth controls. The "monochromatic"
+modified by the energy and bandwidth controls. The "Monochromatic"
 option is recommended when diffuse scattering is enabled, to offset the
 greater computational cost.
 
@@ -188,11 +187,12 @@ class SimView(tk.Frame):
         self._load_params_only()
         self.percentile = 99.9
         self.image_mode = "simulation"
-        self.spectrum_shape = "Gaussian"
+        self.spectrum_shape = "Monochromatic"
+        self.current_expt = "XFEL (stills)"
         self.SASE_sim = spectra_simulation()
-        self._update_spectrum(init=True)
+        self._update_spectrum() #init=True)
         self.diffuse_scattering = False
-        self.Fhkl = True
+        self.Fhkl = False
         self.rotation = False
         self.track_hkl = True # display hkl for mouse location
 
@@ -219,13 +219,9 @@ class SimView(tk.Frame):
         self._reset()
         self._display(init=True)
         self._refresh_dial_options()
+        self._set_visual_defaults()
 
         self.bind()
-
-        # set the option menu first
-        self.dial_choice.set(self.current_dial)
-        self.expt_choice.set("Serial (stills)")
-
 
     def _make_miller_lookup(self):
         ma = self.SIM.crystal.miller_array
@@ -242,6 +238,14 @@ class SimView(tk.Frame):
         self.toolbar.update()
         self.canvas.get_tk_widget().pack(side=tk.TOP, 
             fill=tk.BOTH, expand=tk.YES)
+
+    def _set_visual_defaults(self):
+        """set defaults for font, size, layout, etc."""
+        self.default_font = tk.font.nametofont("TkDefaultFont")
+        self.default_font.config(family="Helvetica", size=15)
+        for menu in (self.expt_type_menu, self.spectrum_menu, self.param_opt_menu):
+            formatter = self.master.nametowidget(menu.menuname)
+            formatter.config(font=self.default_font)
 
     def _get_miller_index_at_mouse(self, x,y,rot_p):
         t = time.time()
@@ -303,7 +307,7 @@ class SimView(tk.Frame):
         return gamma_portion
     
     def _annotate(self):
-        self.ax.plot(*self.beam_center,'y+')
+        self.ax.plot(*self.beam_center,'y+', markersize=20)
         def label_mouse_coords(x, y):
             resol = self.panel.get_resolution_at_pixel(self.s0, (x, y))
 
@@ -349,11 +353,11 @@ class SimView(tk.Frame):
         _button_frame.pack(side=tk.TOP, expand=tk.NO)
         
         tk.Label( _opt_frame, text="Adjusting variable: ",
-            font=("Helvetica",15), width=16)\
+            font=("Helvetica",15), width=20)\
             .pack(side=tk.LEFT)
 
         tk.Label( _button_frame, text="Toggles: ",
-            font=("Helvetica",15), width=8)\
+            font=("Helvetica",15), width=10)\
             .pack(side=tk.LEFT)
 
         self.param_opt_menu = tk.OptionMenu(_opt_frame, 
@@ -362,57 +366,55 @@ class SimView(tk.Frame):
             command=self._update_dial)
         self.param_opt_menu.pack(side=tk.LEFT)
         self.param_opt_menu.config(width=10)
-        self.param_opt_menu.config(font=("Helvetica", 15))
 
         self.reset_all_button=tk.Button(_opt_frame, command=self._reset, text="Reset all")
         self.reset_all_button.pack(side=tk.LEFT)
-        self.reset_all_button.config(font=("Helvetica", 15))
         self.reset_all_button.config(width=8)
 
         self.toggle_ref_img_button=tk.Button(_button_frame, command=self._toggle_image_mode, text="Reference image")
         self.toggle_ref_img_button.pack(side=tk.LEFT)
-        self.toggle_ref_img_button.config(font=("Helvetica", 15))
         self.toggle_ref_img_button.config(width=15)
 
         self.toggle_Fhkl_button=tk.Button(_button_frame, command=self._toggle_Fhkl, text="Fhkl")
         self.toggle_Fhkl_button.pack(side=tk.LEFT)
-        self.toggle_Fhkl_button.config(font=("Helvetica", 15))
         self.toggle_Fhkl_button.config(width=5)
 
         self.toggle_diffuse_button=tk.Button(_button_frame, command=self._toggle_diffuse_scattering, text="Diffuse scattering")
         self.toggle_diffuse_button.pack(side=tk.LEFT)
-        self.toggle_diffuse_button.config(font=("Helvetica", 15))
         self.toggle_diffuse_button.config(width=16)
 
-        self.toggle_spectrum_button=tk.Button(_button_frame, command=self._toggle_spectrum_shape, text="Spectrum shape")
-        self.toggle_spectrum_button.pack(side=tk.LEFT)
-        self.toggle_spectrum_button.config(font=("Helvetica", 15))
-        self.toggle_spectrum_button.config(width=15)
+        self.spectrum_choice = tk.StringVar()
+        self.spectrum_choices = ['Monochromatic', 'Gaussian', 'SASE (XFEL)']
+        self.spectrum_choice.set(self.spectrum_shape)
+        self.spectrum_menu = tk.OptionMenu(_button_frame,
+            self.spectrum_choice,
+            *self.spectrum_choices,
+            command=self._update_spectrum_choice)
+        self.spectrum_menu.pack(side=tk.LEFT)
+        self.spectrum_menu.config(width=20)
 
         self.expt_choice = tk.StringVar()
-        self.expt_choices = ['Serial (stills)', 'Rotation']
-        self.current_expt = 'Serial (stills)'
+        self.expt_choices = ['XFEL (stills)', 'Rotation']
+        self.expt_choice.set(self.current_expt)
         self.expt_type_menu = tk.OptionMenu(_button_frame,
             self.expt_choice,
             *self.expt_choices,
             command=self._update_still_or_rot)
         self.expt_type_menu.pack(side=tk.LEFT)
-        self.expt_type_menu.config(width=10)
-        self.expt_type_menu.config(font=("Helvetica", 15))
+        self.expt_type_menu.config(width=20)
 
         self.randomize_orientation_button=tk.Button(_opt_frame, command=self._randomize_orientation, text="Randomize orientation")
         self.randomize_orientation_button.pack(side=tk.LEFT)
-        self.randomize_orientation_button.config(font=("Helvetica", 15))
         self.randomize_orientation_button.config(width=20)
 
         self.update_ref_image_button=tk.Button(_opt_frame, command=self._update_reference, text="Update reference image")
         self.update_ref_image_button.pack(side=tk.LEFT)
-        self.update_ref_image_button.config(font=("Helvetica", 15))
         self.update_ref_image_button.config(width=21)
 
-    def _update_dial(self):
-        if self.dial_choice.get() != self.current_dial:
-            self.current_dial = self.dial_choice.get()
+    def _update_dial(self, new=None):
+        new_dial = new or self.dial_choice.get()
+        if new_dial != self.current_dial:
+            self.current_dial = new_dial
             self.dial_choice.set(self.current_dial)
             self._display()
 
@@ -448,13 +450,19 @@ class SimView(tk.Frame):
             self.expt_choice.set(self.current_expt)
             self.rotation = (self.current_expt == "Rotation")
             if self.rotation:
-                self.toggle_spectrum_button.config(state="disabled")
-                self.spectrum_shape = "monochromatic"
+                self.spectrum_menu.config(state="disabled")
+                self.spectrum_shape = "Monochromatic"
             else:
-                self.toggle_spectrum_button.config(state="normal")
+                self.spectrum_menu.config(state="normal")
             self._refresh_dial_options()
             self._generate_image_data()
             self._display()
+
+    def _update_spectrum_choice(self, new_choice):
+        if new_choice != self.spectrum_shape:
+            self.spectrum_shape = new_choice
+            self.spectrum_choice.set(self.spectrum_shape)
+            self._update_spectrum(init=(self.spectrum_shape != "Monochromatic"))
 
     def _load_params_only(self):
         """load params that can be adjusted"""
@@ -508,7 +516,7 @@ class SimView(tk.Frame):
 
     def _generate_image_data(self, update_ref=False):
         """generate image to match requested params"""
-        # t = time.time()
+        t = time.time()
         SIM = self.SIM if self.Fhkl else self.SIM_noSF
         diffuse_gamma = (
             self._VALUES["Diff_gamma"] * self._VALUES["Diff_aniso"],
@@ -545,7 +553,7 @@ class SimView(tk.Frame):
                 eta_p=self._VALUES["MosAngDeg"],
                 diffuse_gamma=diffuse_gamma,
                 diffuse_sigma=diffuse_sigma)
-        # t = time.time()-t
+        t = time.time()-t
         self.img_sim[self.pan, self.slow, self.fast] = pix
         if update_ref:
             self.img_ref[self.pan, self.slow, self.fast] = pix
@@ -554,6 +562,7 @@ class SimView(tk.Frame):
         self.img_overlay[:,:,2] = self._normalize_image_data(self.img_sim[0]) # blue channel
         self.img_single_channel[:,:,1] = self._normalize_image_data(self.img_sim[0]) # green channel
         self.img_single_channel[:,:,2] = self._normalize_image_data(self.img_sim[0]) # blue channel
+        print("Time taken to update image data: %8.5f seconds"% t)
 
     def _toggle_diffuse_scattering(self, _press=None):
         self.diffuse_scattering = not self.diffuse_scattering
@@ -584,33 +593,26 @@ class SimView(tk.Frame):
         self._generate_image_data()
         self._display()
 
-    def _toggle_spectrum_shape(self, _press=None):
-        if not self.diffuse_scattering:
-            options = ["Gaussian", "SASE", "monochromatic"]
-            current = options.index(self.spectrum_shape)
-            self.spectrum_shape = options[(current+1)%3]
-            self._update_spectrum(init=(self.spectrum_shape == "SASE"))
-            self._generate_image_data()
-            self._display()
-
     def _update_spectrum(self, new_pulse=False, init=False):
         if self.spectrum_shape == "Gaussian":
             bw = 0.01*self._VALUES["Bandwidth"]*self._VALUES["Energy"] # bandwidth in eV
             gfunc = gaussian.term(1, 4 * math.log(2)/(bw**2)) # FWHM of bw, mu == 0
+            #self.spectrum_eV = [(energy + self._VALUES["Energy"], 1e12 * gfunc.at_x(energy)) \
+            #                    for energy in range(-50,51)]
             self.spectrum_eV = [(energy + self._VALUES["Energy"], 1e12 * gfunc.at_x(energy)) \
-                                for energy in range(-50,51)]
+                                for energy in range(-5,5)]
             self.spectrum_Ang = [(12398./energy, flux) for (energy, flux) in self.spectrum_eV]
-        elif self.spectrum_shape == "SASE":
+        elif self.spectrum_shape == "SASE (XFEL)":
             if init:
                 self.SASE_iter = self.SASE_sim.generate_recast_renormalized_images(
                     energy=self._VALUES["Energy"], total_flux=1e12)
             if new_pulse or init:
                 self.pulse_energies_Ang, self.flux_list, self.avg_wavelength_Ang = next(self.SASE_iter)
             self.spectrum_Ang = list(zip(self.pulse_energies_Ang, self.flux_list))
-        elif self.spectrum_shape == "monochromatic":
+        elif self.spectrum_shape == "Monochromatic":
             self.spectrum_Ang = [(12398./self._VALUES["Energy"], 1e12)] # single wavelength for computational speed
         else:
-            raise NotImplemented("Haven't implemented a spectrum of the requested shape {}".format(shape))
+            raise NotImplementedError("Haven't implemented a spectrum of the requested shape {}".format(self.spectrum_shape))
 
     def _update_ucell(self, dial, new_value):
         # scale one or more lengths depending on symmetry
@@ -676,7 +678,7 @@ Energy/Bandwidth = {energy}/{bw}; Spectra: {spectra}; Fhkl {Fhkl}; Brightness: {
             aniso=self._LABELS["Diff_aniso"] if self.diffuse_scattering else "N/A",
             ucell=self._LABELS["ucell"], # updated when any of a,b,c are updated
             energy=self._LABELS["Energy"],
-            bw=self._LABELS["Bandwidth"] if self.spectrum_shape == "Gaussian" else "N/A",
+            bw=self._LABELS["Bandwidth"] if self.spectrum_choice.get() == "Gaussian" else "N/A",
             spectra=self.spectrum_shape,
             missetting_or_deltaphi=missetting_or_deltaphi,
             ref="ON" if self.image_mode == "overlay" else "OFF",
@@ -757,14 +759,13 @@ Energy/Bandwidth = {energy}/{bw}; Spectra: {spectra}; Fhkl {Fhkl}; Brightness: {
         self.master.bind_all("<I>", self._toggle_image_mode) # toggle displaying reference image
         self.master.bind_all("<F>", self._toggle_Fhkl) # toggle using Fhkl to scale intensities
         self.master.bind_all("<D>", self._toggle_diffuse_scattering) # toggle diffuses scattering on/off
-        self.master.bind_all("<S>", self._toggle_spectrum_shape) # toggle between Gaussian, SASE and mono beam
         self.master.bind_all("<O>", self._randomize_orientation) # randomize crystal orientation
         self.master.bind_all("<U>", self._update_reference) # update reference image (in red)
 
     def _next_dial(self, tkevent):
         try:
             new_dial = self.dial_names[self.dial_names.index(self.current_dial) + 1]
-            self._update_dial(new_dial)
+            self._update_dial(new=new_dial)
         except IndexError:
             new_dial = self.dial_names[0]
             self._update_dial(new_dial)
@@ -772,7 +773,7 @@ Energy/Bandwidth = {energy}/{bw}; Spectra: {spectra}; Fhkl {Fhkl}; Brightness: {
     def _prev_dial(self, tkevent):
         try:
             new_dial = self.dial_names[self.dial_names.index(self.current_dial) - 1]
-            self._update_dial(new_dial)
+            self._update_dial(new=new_dial)
         except IndexError:
             pass
 
@@ -865,7 +866,7 @@ if __name__ == '__main__':
 
     # params stored as: [min, max, small_step, big_step, default]
     params = {
-        "DomainSize":[6, 200, 2, 10, 30],
+        "DomainSize":[6, 1000, 2, 10, 200],
         "MosAngDeg":[0.01, 5, 0.01, 0.1, 0.1001],
         "ucell_scale":[0.5, 2., 0.05, 0.1, 1],
         "Diff_gamma":[1, 300, 1, 10, 50],
@@ -883,7 +884,7 @@ if __name__ == '__main__':
     root = tk.Tk()
     root.title("SimView")
 
-    root.geometry('960x570')
+    root.geometry('1920x1140')
     #root.resizable(0,0)
     
     frame = SimView(root, params, pdbfile)
