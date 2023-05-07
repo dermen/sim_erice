@@ -219,17 +219,17 @@ class ParamsHandler(object):
             self.all_params.append(key)
 
 params_num = ParamsHandler({
-    'domain_size':  NumericalParam(min=6,       max=1000,   small_step=2,       big_step=10,    default=30,     formatter='%d',     units_string=' Å',  label='Domain size (each edge)'),
+    'domain_size':  NumericalParam(min=100,     max=100000, small_step=100,     big_step=1000,  default=1000,   formatter='%d',     units_string=' Å',  label='Domain size (each edge)'),
     'mos_ang_deg':  NumericalParam(min=0.01,    max=5,      small_step=0.01,    big_step=0.1,   default=0.1,    formatter='%4.2f',  units_string='º',   label='Mosaic angle'),
     'ucell_scale_a':NumericalParam(min=0.5,     max=2,      small_step=0.05,    big_step=0.1,   default=1,      formatter='%4.2f',  units_string='',    label='Unit cell scale (a)'),
     'ucell_scale_b':NumericalParam(min=0.5,     max=2,      small_step=0.05,    big_step=0.1,   default=1,      formatter='%4.2f',  units_string='',    label='Unit cell scale (b)'),
     'ucell_scale_c':NumericalParam(min=0.5,     max=2,      small_step=0.05,    big_step=0.1,   default=1,      formatter='%4.2f',  units_string='',    label='Unit cell scale (c)'),
-    'rot_x':        NumericalParam(min=-180,    max=180,    small_step=0.01,    big_step=0.1,   default=0,      formatter='%6.2f',  units_string='º',   label='Rotation (x)'),
-    'rot_y':        NumericalParam(min=-180,    max=180,    small_step=0.01,    big_step=0.1,   default=0,      formatter='%6.2f',  units_string='º',   label='Rotation (y)'),
-    'rot_z':        NumericalParam(min=-180,    max=180,    small_step=0.01,    big_step=0.1,   default=0,      formatter='%6.2f',  units_string='º',   label='Rotation (z)'),
+    'rot_x':        NumericalParam(min=-180,    max=180,    small_step=0.1,     big_step=1,     default=0,      formatter='%6.2f',  units_string='º',   label='Rotation (x)'),
+    'rot_y':        NumericalParam(min=-180,    max=180,    small_step=0.1,     big_step=1,     default=0,      formatter='%6.2f',  units_string='º',   label='Rotation (y)'),
+    'rot_z':        NumericalParam(min=-180,    max=180,    small_step=0.1,     big_step=1,     default=0,      formatter='%6.2f',  units_string='º',   label='Rotation (z)'),
     'diff_gamma':   NumericalParam(min=1,       max=300,    small_step=1,       big_step=10,    default=50,     formatter='%d',     units_string=' Å',  label='Diffuse gamma'),
     'diff_sigma':   NumericalParam(min=0.01,    max=0.7,    small_step=0.01,    big_step=0.05,  default=0.4,    formatter='%4.2f',  units_string=' Å',  label='Diffuse sigma'),
-    'diff_aniso':   NumericalParam(min=0.01,    max=10,     small_step=0.1,     big_step=1,     default=3,      formatter='%3.1f',  units_string='',    label='Diffuse anisotropy'),
+    'diff_aniso':   NumericalParam(min=0.01,    max=10,     small_step=0.1,     big_step=1,     default=1,      formatter='%3.1f',  units_string='',    label='Diffuse anisotropy'),
     'delta_phi':    NumericalParam(min=0.1,     max=5,      small_step=0.05,    big_step=0.5,   default=0.25,   formatter='%3.1f',  units_string='º',   label='Oscillation width'),
     'image':        NumericalParam(min=1,       max=100,    small_step=1,       big_step=10,    default=1,      formatter='%d',     units_string='',    label='Image no.'),
     'energy':       NumericalParam(min=6500,    max=12000,  small_step=10,      big_step=30,    default=9500,   formatter='%d',     units_string=' eV', label='Beam energy'),
@@ -237,25 +237,25 @@ params_num = ParamsHandler({
     'brightness':   NumericalParam(min=0,       max=2,      small_step=0.01,    big_step=0.1,   default=0.5,    formatter='%4.2f',  units_string='',    label='Brightness'),
 })
 params_cat = ParamsHandler({
-    'spectrum_shape':   CategoricalParam(default='Monochromatic',       options=['Monochromatic', 'Gaussian', 'SASE (XFEL)'],                 label='Spectrum shape'),
-    'rotation_mode':    CategoricalParam(default='XFEL',                options=['XFEL', 'Rotation'],                                         label='Experiment mode'),
+    'spectrum_shape':   CategoricalParam(default='SASE (XFEL)',         options=['Monochromatic', 'Gaussian', 'SASE (XFEL)'],                 label='Spectrum shape'),
+    'rotation_mode':    CategoricalParam(default='Stills',              options=['Stills', 'Rotation'],                                       label='Experiment mode'),
     'diffuse_mode':     CategoricalParam(default='Off',                 options=['Off', 'On'],                                                label='Diffuse scattering'),
     'reference_mode':   CategoricalParam(default='Simulation only',     options=['Simulation only', 'Overlay with reference'],                label='Display mode'),
     'Fhkl':             CategoricalParam(default='Off',                 options=['On', 'Off'],                                                label='Use structure factors'),
 })
 
 params_num = { # numerical
-    'DomainSize':   {'min':6,       'max':1000,     'sstep':2,      'bstep':10,     'default':30,       'formatter':'%4.0f',    'units_string':'Å',     'position':(0,0),   'label':'Domain size (each edge)'},
+    'DomainSize':   {'min':100,     'max':100000,   'sstep':100,    'bstep':1000,   'default':1000,     'formatter':'%4.0f',    'units_string':'Å',     'position':(0,0),   'label':'Domain size (each edge)'},
     'MosAngDeg':    {'min':0.01,    'max':5,        'sstep':0.01,   'bstep':0.1,    'default':0.1001,   'formatter':'%4.2f',    'units_string':'deg',   'position':(0,1),   'label':'Mosaic angle'},
     'ucell_scale_a':{'min':0.5,     'max':2.,       'sstep':0.05,   'bstep':0.1,    'default':1,        'formatter':'%4.2f',    'units_string':'',      'position':(1,0),   'label':'Unit cell scale (a)'},
     'ucell_scale_b':{'min':0.5,     'max':2.,       'sstep':0.05,   'bstep':0.1,    'default':1,        'formatter':'%4.2f',    'units_string':'',      'position':(1,1),   'label':'Unit cell scale (b)'},
     'ucell_scale_c':{'min':0.5,     'max':2.,       'sstep':0.05,   'bstep':0.1,    'default':1,        'formatter':'%4.2f',    'units_string':'',      'position':(1,2),   'label':'Unit cell scale (c)'},
-    'RotX':         {'min':-180,    'max':180,      'sstep':0.01,   'bstep':0.1,    'default':0,        'formatter':'%6.2f',    'units_string':'deg',   'position':(2,0),   'label':'Rotation (x)'},
-    'RotY':         {'min':-180,    'max':180,      'sstep':0.01,   'bstep':0.1,    'default':0,        'formatter':'%6.2f',    'units_string':'deg',   'position':(2,1),   'label':'Rotation (y)'},
-    'RotZ':         {'min':-180,    'max':180,      'sstep':0.01,   'bstep':0.1,    'default':0,        'formatter':'%6.2f',    'units_string':'deg',   'position':(2,2),   'label':'Rotation (z)'},
+    'RotX':         {'min':-180,    'max':180,      'sstep':0.1,    'bstep':1,      'default':0,        'formatter':'%6.2f',    'units_string':'deg',   'position':(2,0),   'label':'Rotation (x)'},
+    'RotY':         {'min':-180,    'max':180,      'sstep':0.1,    'bstep':1,      'default':0,        'formatter':'%6.2f',    'units_string':'deg',   'position':(2,1),   'label':'Rotation (y)'},
+    'RotZ':         {'min':-180,    'max':180,      'sstep':0.1,    'bstep':1,      'default':0,        'formatter':'%6.2f',    'units_string':'deg',   'position':(2,2),   'label':'Rotation (z)'},
     'Diff_gamma':   {'min':1,       'max':300,      'sstep':1,      'bstep':10,     'default':50,       'formatter':'%3.0f',    'units_string':'Å',     'position':(3,0),   'label':'Diffuse gamma'},
     'Diff_sigma':   {'min':.01,     'max':0.7,      'sstep':.01,    'bstep':0.05,   'default':.4,       'formatter':'%4.2f',    'units_string':'Å',     'position':(3,1),   'label':'Diffuse sigma'},
-    'Diff_aniso':   {'min':.01,     'max':10,       'sstep':.1,     'bstep':1,      'default':3,        'formatter':'%3.1f',    'units_string':'',      'position':(3,2),   'label':'Diffuse anisotropy'},
+    'Diff_aniso':   {'min':.01,     'max':10,       'sstep':.1,     'bstep':1,      'default':1,        'formatter':'%3.1f',    'units_string':'',      'position':(3,2),   'label':'Diffuse anisotropy'},
     'Delta_phi':    {'min':0.1,     'max':5,        'sstep':0.05,   'bstep':0.5,    'default':0.25,     'formatter':'%3.1f',    'units_string':'deg',   'position':(4,0),   'label':'Oscillation width'},
     'Image':        {'min':1,       'max':100,      'sstep':1,      'bstep':10,     'default':1,        'formatter':'%3.0f',    'units_string':'',      'position':(4,1),   'label':'Image no.'},
     'Brightness':   {'min':0,       'max':2,        'sstep':0.01,   'bstep':0.1,    'default':0.5,      'formatter':'%4.2f',    'units_string':'',      'position':(4,2),   'label':'Brightness'},
@@ -264,8 +264,8 @@ params_num = { # numerical
 }
 
 params_cat = { # categorical
-    'spectrum_shape':   {'default':'Monochromatic',     'options':['Monochromatic', 'Gaussian', 'SASE (XFEL)'],                 'position':(6,0),   'label':'Spectrum shape'},
-    'rotation_mode':    {'default':'XFEL',              'options':['XFEL', 'Rotation'],                                         'position':(6,1),   'label':'Experiment mode'},
+    'spectrum_shape':   {'default':'SASE (XFEL)',       'options':['Monochromatic', 'Gaussian', 'SASE (XFEL)'],                 'position':(6,0),   'label':'Spectrum shape'},
+    'rotation_mode':    {'default':'Stills',            'options':['Stills', 'Rotation'],                                       'position':(6,1),   'label':'Experiment mode'},
     'diffuse_mode':     {'default':'Off',               'options':['Off', 'On'],                                                'position':(6,2),   'label':'Diffuse scattering'},
     'reference_mode':   {'default':'Simulation only',   'options':['Simulation only', 'Overlay with reference'],                'position':(7,0),   'label':'Display mode'},
     'Fhkl':             {'default':'Off',               'options':['On', 'Off'],                                                'position':(7,1),   'label':'Use structure factors'},
@@ -308,11 +308,11 @@ class SimView(tk.Frame):
         self.xtal = self.SIM.crystal.dxtbx_crystal
         self.ucell = self.xtal.get_unit_cell().parameters()
         self.scaled_ucell = self.ucell
+        self.on_update_domain_size(skip_gen_image_data=True)
         self.sg = self.xtal.get_space_group()
         self._check_symmetry()
-        self.percentile = 99.9
-        #self.SASE_sim = spectra_simulation()
-        self.on_update_spectrum(init=True, skip_gen_image_data=True)
+        self.SASE_sim = spectra_simulation()
+        self.on_update_spectrum(init=True, new_pulse=True, skip_gen_image_data=True)
         self.on_update_diffuse_params(skip_gen_image_data=True)
         self.annotate_hkl = True # display hkl for mouse location
 
@@ -333,12 +333,13 @@ class SimView(tk.Frame):
         self._init_fig()
 
         self._pack_canvas()
-        self._display(init=True)
+        self._init_display()
         self._set_visual_defaults()
         self._update_dial(self.current_dial_name)
         self.on_toggle_diffuse_mode(skip_gen_image_data=True)
         self.on_toggle_rotation_mode(skip_gen_image_data=True)
         self.on_toggle_spectrum_shape(skip_gen_image_data=True)
+        self._enforce_symmetry_on_controls()
 
         self.bind()
 
@@ -474,7 +475,6 @@ class SimView(tk.Frame):
             specs['value'] = specs['default']
         for specs in self.params_cat.values():
             specs['selection'] = specs['default']
-            # any necessary hide/show as well -- call the on_toggle methods
 
     def _set_trace(self):
         import pdb
@@ -494,6 +494,8 @@ class SimView(tk.Frame):
             elif dial_name in ['ucell_scale_a', 'ucell_scale_b', 'ucell_scale_c']:
                 axis = dial_name[-1]
                 dial_specific_logic = lambda: self.on_update_ucell(axis)
+            elif dial_name == 'DomainSize':
+                dial_specific_logic = self.on_update_domain_size
             elif dial_name == 'Brightness':
                 dial_specific_logic = self.on_update_normalization
             else:
@@ -579,8 +581,6 @@ class SimView(tk.Frame):
             #specs['control_frame'] = choice_frame
 
         # Buttons
-        #self.reset_all_button=tk.Button(_button_frame, command=self._reset, text="Reset all")
-
         self.new_pulse_button=tk.Button(_options_frame, command=self.on_new_pulse, text="New XFEL pulse")
         self.new_pulse_button.grid(row=5, column=2, sticky='n'+'s'+'e'+'w')
 
@@ -590,8 +590,11 @@ class SimView(tk.Frame):
         self.update_ref_image_button=tk.Button(_options_frame, command=self._update_reference, text="Update reference image")
         self.update_ref_image_button.grid(row=8, column=1, sticky='n'+'s'+'e'+'w')
 
-        self.pdb_set_trace_button=tk.Button(_options_frame, command=self._set_trace, text="Enter debugger")
-        self.pdb_set_trace_button.grid(row=8, column=2, sticky='n'+'s'+'e'+'w')
+        self.reset_all_button=tk.Button(_options_frame, command=self._reset_all, text="Reset all")
+        self.reset_all_button.grid(row=8, column=2, sticky='n'+'s'+'e'+'w')
+
+        #self.pdb_set_trace_button=tk.Button(_options_frame, command=self._set_trace, text="Enter debugger")
+        #self.pdb_set_trace_button.grid(row=8, column=2, sticky='n'+'s'+'e'+'w')
 
     def on_toggle_rotation_mode(self, new_mode=None, update_selection=False, skip_gen_image_data=False):
         """enforce monochromatic beam, hide/show rotation specific params"""
@@ -625,8 +628,6 @@ class SimView(tk.Frame):
             show_new_pulse = 'normal'
         elif self.params_cat['spectrum_shape']['selection'] == 'Gaussian':
             show_bandwidth = 'normal'
-        elif self.params_cat['spectrum_shape']['selection'] == 'Monochromatic' and self.params_cat['rotation_mode']['selection'] == 'XFEL':
-            show_new_pulse = 'normal'
         self.new_pulse_button.configure(state=show_new_pulse)
         for part in ['dial_label', 'dial_control', 'dial_units']:
             self.params_num['Bandwidth'][part].configure(state=show_bandwidth)
@@ -634,8 +635,7 @@ class SimView(tk.Frame):
             self.active_dial_names.add('Bandwidth')
         else:
             self.active_dial_names.discard('Bandwidth')
-        if not skip_gen_image_data:
-            self._generate_image_data()
+        self.on_update_spectrum(new_pulse=(new_shape is not None), skip_gen_image_data=skip_gen_image_data)
 
     def on_toggle_diffuse_mode(self, skip_gen_image_data=False):
         """set visibility of diffuse mode params, and enforce mono beam in diffuse mode"""
@@ -648,7 +648,7 @@ class SimView(tk.Frame):
                 self.active_dial_names.add(param)
             self.on_update_diffuse_params()
         else:
-            self.SIM.D.mosaic_domains = 1 #100
+            self.SIM.D.mosaic_domains = 100
             for param in ['Diff_gamma', 'Diff_sigma', 'Diff_aniso']:
                 for part in ['dial_label', 'dial_control', 'dial_units']:
                     self.params_num[param][part].configure(state='disabled')
@@ -678,7 +678,7 @@ class SimView(tk.Frame):
         if not skip_gen_image_data:
             self._generate_image_data()
 
-    def on_new_pulse(self, tkevent):
+    def on_new_pulse(self, tkevent=None):
         self.on_update_spectrum(new_pulse=True)
 
     def on_update_diffuse_params(self, skip_gen_image_data=False):
@@ -712,11 +712,22 @@ class SimView(tk.Frame):
         # if a,c remaining: b scales with a
         # if a remaining: a,b,c all vary together
 
+    def _enforce_symmetry_on_controls(self):
+        """disable ucell params that cannot be independently adjusted"""
+        if not self.b_can_scale:
+          for part in ['dial_label', 'dial_control', 'dial_units']:
+              self.params_num['ucell_scale_b'][part].configure(state='disabled')
+              self.active_dial_names.discard('ucell_scale_b')
+        if not self.c_can_scale:
+          for part in ['dial_label', 'dial_control', 'dial_units']:
+              self.params_num['ucell_scale_c'][part].configure(state='disabled')
+              self.active_dial_names.discard('ucell_scale_c')
+
     def on_update_normalization(self):
         """update normalization"""
         exponent = self.params_num['Brightness']['value']*2-2
         self.percentile = 100 - 10**exponent
-        self._normalize_all_image_data()
+        self._normalize_all_image_data(display=False)
 
     def _normalize_image_data(self, img_data):
         """scale data to [0,1] where variable %ile intensities and above are set to 1."""
@@ -742,6 +753,8 @@ class SimView(tk.Frame):
         """generate image to match requested params"""
         t = time.time()
         SIM = self.SIM if self.params_cat['Fhkl']['selection'] == 'On' else self.SIM_noSF
+        diffuse_gamma = self.diffuse_gamma if self.params_cat['diffuse_mode']['selection'] == 'On' else None
+        diffuse_sigma = self.diffuse_sigma if self.params_cat['diffuse_mode']['selection'] == 'On' else None
         if self.params_cat['rotation_mode']['selection'] == 'Rotation':
             delta_phi = self.params_num['Delta_phi']['value']
             pix = sweep(SIM,
@@ -749,30 +762,41 @@ class SimView(tk.Frame):
                 delta_phi/10., # phi step for simtbx
                 delta_phi, # phi range summmed in one image
                 self.pfs, self.scaled_ucell,
-                tuple([(x,x,x) for x in [self.params_num['DomainSize']['value']]][0]),
+                tuple(self.ncells),
                 (0,
                 0,
                 self.params_num['RotZ']['value']*math.pi/180.),
                 spectrum=self.spectrum_Ang,
                 eta_p=self.params_num['MosAngDeg']['value'],
-                diffuse_gamma=self.diffuse_gamma,
-                diffuse_sigma=self.diffuse_sigma)
+                diffuse_gamma=diffuse_gamma,
+                diffuse_sigma=diffuse_sigma)
         else:
             pix = run_simdata(SIM, self.pfs, self.scaled_ucell,
-                tuple([(x,x,x) for x in [self.params_num['DomainSize']['value']]][0]),
+                tuple(self.ncells),
                 (self.params_num['RotX']['value']*math.pi/180.,
                 self.params_num['RotY']['value']*math.pi/180.,
                 self.params_num['RotZ']['value']*math.pi/180.),
                 spectrum=self.spectrum_Ang,
                 eta_p=self.params_num['MosAngDeg']['value'],
-                diffuse_gamma=self.diffuse_gamma,
-                diffuse_sigma=self.diffuse_sigma)
+                diffuse_gamma=diffuse_gamma,
+                diffuse_sigma=diffuse_sigma)
         t = time.time()-t
         self.img_sim[self.pan, self.slow, self.fast] = pix
         if update_ref:
             self.img_ref[self.pan, self.slow, self.fast] = pix
         print("Time taken to update image data: %8.5f seconds"% t)
-        self._normalize_all_image_data(display=display)
+        if display:
+          self._normalize_all_image_data()
+
+    def on_update_domain_size(self, skip_gen_image_data=False):
+        """given a target domain size (one side length), determine number of cells to use along each axis"""
+        side_length = self.params_num['DomainSize']['value']
+        a, b, c, _, _, _ = self.scaled_ucell
+        self.ncells = []
+        for side in (a, b, c):
+            self.ncells.append(max(int(round(side_length/side)), 1))
+        if not skip_gen_image_data:
+            self._generate_image_data()
 
     def on_update_ucell(self, axis):
         """scale one or more lengths depending on symmetry"""
@@ -799,18 +823,23 @@ class SimView(tk.Frame):
         randomize_orientation(self.SIM_noSF, seed_rand=seed1, seed_mersenne=seed2)
         self._generate_image_data(update_ref=True)
 
-    def _display(self, init=False):
+    def _init_display(self):
+        """initialize the display"""
+        self.aximg = self.ax.imshow(self.img_single_channel)
+        self._generate_image_data(update_ref=True, display=False)
+        self.on_update_normalization()
+        #self._generate_image_data()
+        #self._normalize_all_image_data()
+        self.canvas.draw()
+        self._annotate()
+
+    def _display(self):
         """display the current image"""
         if self.params_cat['reference_mode']['selection'] == 'Overlay with reference':
             imgdata = self.img_overlay
         else:
             imgdata = self.img_single_channel
-        if init:
-            self._generate_image_data(display=False, update_ref=True)
-            self.aximg = self.ax.imshow(imgdata)
-        else:
-            self.aximg.set_data(imgdata)
-
+        self.aximg.set_data(imgdata)
         self.canvas.draw()
         self._annotate()
 
@@ -897,31 +926,24 @@ class SimView(tk.Frame):
             new_value = self.current_dial['min']
         self._set_new_value(new_value)
 
-    def _reset(self, tkevent):
+    def _reset(self, tkevent=None):
         this_dial = self.params_num[self.current_dial]
         this_dial['dial_value'].set(this_dial['default'])
+        this_dial['value'] = this_dial['default']
+        this_dial['on_update_command']()
 
-    def _reset_all(self, tkevent):
+    def _reset_all(self, tkevent=None):
+        for menu in ['diffuse_mode', 'rotation_mode', 'spectrum_shape', 'Fhkl', 'reference_mode']:
+            self.params_cat[menu]['selection'] = self.params_cat[menu]['default']
+            self.params_cat[menu]['control_text'].set(self.params_cat[menu]['default'])
+        self.on_toggle_diffuse_mode(skip_gen_image_data=True)
+        self.on_toggle_rotation_mode(skip_gen_image_data=True)
+        self.on_toggle_spectrum_shape(skip_gen_image_data=True)
         for dial in self.dial_names:
             this_dial = self.params_num[dial]
             this_dial['dial_value'].set(this_dial['default'])
-
-    #def _reset(self, _press=None):
-    #    for dial in self.dial_names:
-    #        default_value = self.params[dial][4]
-    #        self._VALUES[dial] = default_value
-    #        self._LABELS[dial] = self._get_new_label_part(dial, default_value)
-
-    #    for SIM in (self.SIM, self.SIM_noSF):
-    #        SIM.crystal.dxtbx_crystal.set_U(self.start_ori)
-    #        # TODO: if we really need to reinstantiate, then should call the free methods to avoid memory leaks
-    #        # hopper_utils.free_SIM_mem(SIM)
-    #        #SIM.instantiate_diffBragg(oversample=1, device_Id=0, default_F=0)  # btw, defaultF will be different for SIM_noSF (1000)
-
-    #        # however, it seems maybe just resetting the Umat is necessary
-    #        SIM.D.Umatrix = self.start_ori
-    #    self._generate_image_data(update_ref=True)
-    #    self._display(init=True)
+            this_dial['value'] = this_dial['default']
+            this_dial['on_update_command']()
 
 if __name__ == '__main__':
     import sys
