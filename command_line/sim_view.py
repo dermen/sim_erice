@@ -382,6 +382,7 @@ class SimView(tk.Frame):
         self.SIM = get_SIM(whole_det, beam, cryst, pdbfile, defaultF=0)
         self.SIM.D.laue_group_num = get_laue_group_number(str(symmetry.space_group_info()))
         self.SIM.D.stencil_size = 1
+        self.SIM.D.mosaic_domains = 100
         self._make_miller_lookup()  # make a dictionary for faster lookup
         self.default_amp = np.median(self.SIM.crystal.miller_array.data())
         self.SIM_noSF = get_SIM(whole_det, beam, cryst, pdbfile, defaultF=self.default_amp, SF=False)
@@ -637,13 +638,11 @@ class SimView(tk.Frame):
     def on_toggle_diffuse_mode(self, skip_gen_image_data=False):
         """set visibility of diffuse mode params, and enforce mono beam in diffuse mode"""
         if self.params_cat.diffuse_mode.get_value() == 'On':
-            self.SIM.D.mosaic_domains = 1
             self.on_toggle_spectrum_shape('Monochromatic', update_selection=True)
             for param in [self.params_num.diff_gamma, self.params_num.diff_sigma, self.params_num.diff_aniso]:
                 param.enable()
             self.on_update_diffuse_params()
         else:
-            self.SIM.D.mosaic_domains = 100
             for param in [self.params_num.diff_gamma, self.params_num.diff_sigma, self.params_num.diff_aniso]:
                 param.disable()
         if not skip_gen_image_data:
