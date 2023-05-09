@@ -911,6 +911,11 @@ if __name__ == '__main__':
 
 
     root = tk.Tk()
+    def _close_window():
+        root.quit()
+        root.destroy()
+    root.protocol("WM_DELETE_WINDOW", _close_window)
+    
     root.title("SimView")
 
     root.geometry('1920x1140')
