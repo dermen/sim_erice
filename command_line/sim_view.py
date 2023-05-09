@@ -152,21 +152,23 @@ shown. You can press "Show reference image" to switch between these.
 
 class NumericalParam(object):
     def __init__(self, min, max, small_step, big_step, default,
-                 formatter='%4.2f', units_string='', label=''):
+                 formatter='%4.2f', units_string='', label='', position=None):
         self.min = min
         self.max = max
         self.sstep = small_step
         self.bstep = big_step
         self.default = default
-        self.value = default
         self.formatter = formatter
         self.units = units_string
         self.label = label
+        self.position = position
+        self.is_enabled = True
+        self.is_active = False
     def register_parent_frame(self, parent_frame):
         self.parent_frame = parent_frame
-    def generate_dial(self, position, extra_logic=lambda: None):
+    def generate_dial(self, extra_logic=lambda: None):
         self.frame = tk.Frame(self.parent_frame)
-        self.frame.grid(row=position[0], column=position[1],
+        self.frame.grid(row=self.position[0], column=self.position[1],
                         sticky='w', padx=6)
         self.f_label = tk.Label(self.frame, text=self.label)
         self.f_label.pack(side=tk.LEFT, padx=4)
@@ -181,24 +183,53 @@ class NumericalParam(object):
                                  to=self.max,
                                  increment=self.sstep,
                                  format=self.formatter,
-                                 command=self.command)
+                                 command=self.command,
+                                 textvariable=self.variable)
         self.f_ctrl.pack(side=tk.RIGHT)
         self.f_units = tk.Label(self.frame, text=self.units)
         self.f_units.pack(side=tk.RIGHT)
     def make_command(self, extra_logic):
-        def on_update_dial():
-            self.value = self.variable.get()
+        def on_update_dial(tkevent=None):
             extra_logic()
         return on_update_dial
+    def get_value(self):
+        if hasattr(self, 'variable'):
+            return self.variable.get()
+        else:
+            return self.default
+    def set_value(self, new_value, callbacks=True):
+        self.variable.set(new_value)
+        if callbacks:
+            self.command()
+    def reset(self, callbacks=True):
+        self.set_value(self.default, callbacks=callbacks)
+    def enable(self):
+        for part in (self.f_label, self.f_ctrl, self.f_units):
+            part.config(state='normal')
+        self.is_enabled = True
+    def disable(self):
+        for part in (self.f_label, self.f_ctrl, self.f_units):
+            part.config(state='disabled')
+        self.is_enabled = False
+    def activate(self):
+        for part in (self.f_label, self.f_units):
+            part.config(font='Helvetica 15 bold', fg='blue')
+        self.is_active = True
+    def deactivate(self):
+        for part in (self.f_label, self.f_units):
+            part.config(font='Helvetica 15', fg='black')
+        self.is_active = False
 
 class CategoricalParam(NumericalParam):
-    def __init__(self, default, options, label):
+    def __init__(self, default, options, label, position=None):
         self.default = default
         self.options = options
         self.label = label
-    def generate_menu(self, position, extra_logic=lambda: None):
+        self.position = position
+        self.is_enabled = True
+    def generate_menu(self, extra_logic=lambda: None):
         self.frame = tk.Frame(self.parent_frame)
-        self.frame.grid(row=position[0], column=position[1],
+        self.frame.grid(row=self.position[0], column=self.position[1],
                         sticky='w', padx=6)
         self.f_label = tk.Label(self.frame, text=self.label)
         self.f_label.pack(side=tk.LEFT, padx=4)
@@ -208,68 +239,123 @@ class CategoricalParam(NumericalParam):
         self.f_menu = tk.OptionMenu(self.frame,
                                     self.variable,
                                     *self.options,
-                                    command=command)
+                                    command=self.command)
         self.f_menu.pack(side=tk.LEFT)
+    def enable(self):
+        for part in (self.f_label, self.f_menu):
+            part.config(state='normal')
+        self.is_enabled = True
+    def disable(self):
+        for part in (self.f_label, self.f_menu):
+            part.config(state='disabled')
+        self.is_enabled = False
 
 class ParamsHandler(object):
-    def __init__(self, dict_):
+    def __init__(self, dict_, track_current_param=False):
+        self.all_param_names = []
         self.all_params = []
         for key,value in dict_.items():
             self.__setattr__(key, value)
-            self.all_params.append(key)
+            self.all_param_names.append(key)
+            self.all_params.append(value)
+        if track_current_param:
+            try:
+                self.current_param_name = self.get_enabled_param_names()[0]
+                self.current_param = self.__getattribute__(self.current_param_name)
+            except IndexError:
+                self.current_param_name = None
+                self.current_param = None
+        else:
+            self.current_param_name = None
+            self.current_param = None
+    def all_register_parent_frame(self, parent_frame):
+        for param in self.all_params:
+            param.register_parent_frame(parent_frame)
+    def get_param(self, param_name):
+        return self.__getattribute__(param_name)
+    def reset_all(self, callbacks=True):
+        for param_name in self.all_param_names:
+            self.get_param(param_name).reset(callbacks=callbacks)
+    def get_enabled_param_names(self):
+        return [name for name in self.all_param_names if self.get_param(name).is_enabled]
+    def set_active_param(self, new_param_name):
+        self.current_param_name = None
+        self.current_param = None
+        for (name, param) in zip(self.all_param_names, self.all_params):
+            if name == new_param_name:
+                param.activate()
+                self.current_param_name = new_param_name
+                self.current_param = param
+            else:
+                param.deactivate()
+        if not self.current_param_name:
+            self.current_param_name = self.get_enabled_param_names()[0]
+            self.current_param = self.get_param(self.current_param_name)
+    def get_active_param(self):
+        try:
+            return [param for param in self.all_params if param.is_active][0]
+        except IndexError:
+            return None
+    def activate_next(self, direction=1):
+        if self.current_param_name is None:
+            try:
+                self.current_param_name = self.get_enabled_param_names()[0]
+                self.current_param = self.get_param(self.current_param_name)
+            except IndexError:
+                return
+        else:
+            enabled_names = self.get_enabled_param_names()
+            try:
+                next_idx = self.all_param_names.index(self.current_param_name) + 1*direction
+                while not self.all_param_names[next_idx] in enabled_names:
+                    next_idx += 1*direction
+            except IndexError:
+                next_idx = 0
+            self.current_param.deactivate()
+            self.current_param_name = self.all_param_names[next_idx]
+            self.current_param = self.get_param(self.current_param_name)
+            self.current_param.activate()
+    def activate_previous(self):
+        self.activate_next(direction=-1)
+
+class Button(object):
+    def __init__(self, parent_frame, command, label, position):
+        self.command = command
+        self.button = tk.Button(parent_frame, command=command, text=label)
+        self.button.grid(row=position[0], column=position[1],
+                         sticky='n'+'s'+'e'+'w')
+    def press(self):
+        self.command()
+    def enable(self):
+        self.button.configure(state='normal')
+    def disable(self):
+        self.button.configure(state='disabled')
 
 params_num = ParamsHandler({
-    'domain_size':  NumericalParam(min=100,     max=100000, small_step=100,     big_step=1000,  default=1000,   formatter='%d',     units_string=' Å',  label='Domain size (each edge)'),
-    'mos_ang_deg':  NumericalParam(min=0.01,    max=5,      small_step=0.01,    big_step=0.1,   default=0.1,    formatter='%4.2f',  units_string='º',   label='Mosaic angle'),
-    'ucell_scale_a':NumericalParam(min=0.5,     max=2,      small_step=0.05,    big_step=0.1,   default=1,      formatter='%4.2f',  units_string='',    label='Unit cell scale (a)'),
-    'ucell_scale_b':NumericalParam(min=0.5,     max=2,      small_step=0.05,    big_step=0.1,   default=1,      formatter='%4.2f',  units_string='',    label='Unit cell scale (b)'),
-    'ucell_scale_c':NumericalParam(min=0.5,     max=2,      small_step=0.05,    big_step=0.1,   default=1,      formatter='%4.2f',  units_string='',    label='Unit cell scale (c)'),
-    'rot_x':        NumericalParam(min=-180,    max=180,    small_step=0.1,     big_step=1,     default=0,      formatter='%6.2f',  units_string='º',   label='Rotation (x)'),
-    'rot_y':        NumericalParam(min=-180,    max=180,    small_step=0.1,     big_step=1,     default=0,      formatter='%6.2f',  units_string='º',   label='Rotation (y)'),
-    'rot_z':        NumericalParam(min=-180,    max=180,    small_step=0.1,     big_step=1,     default=0,      formatter='%6.2f',  units_string='º',   label='Rotation (z)'),
-    'diff_gamma':   NumericalParam(min=1,       max=300,    small_step=1,       big_step=10,    default=50,     formatter='%d',     units_string=' Å',  label='Diffuse gamma'),
-    'diff_sigma':   NumericalParam(min=0.01,    max=0.7,    small_step=0.01,    big_step=0.05,  default=0.4,    formatter='%4.2f',  units_string=' Å',  label='Diffuse sigma'),
-    'diff_aniso':   NumericalParam(min=0.01,    max=10,     small_step=0.1,     big_step=1,     default=1,      formatter='%3.1f',  units_string='',    label='Diffuse anisotropy'),
-    'delta_phi':    NumericalParam(min=0.1,     max=5,      small_step=0.05,    big_step=0.5,   default=0.25,   formatter='%3.1f',  units_string='º',   label='Oscillation width'),
-    'image':        NumericalParam(min=1,       max=100,    small_step=1,       big_step=10,    default=1,      formatter='%d',     units_string='',    label='Image no.'),
-    'energy':       NumericalParam(min=6500,    max=12000,  small_step=10,      big_step=30,    default=9500,   formatter='%d',     units_string=' eV', label='Beam energy'),
-    'bandwidth':    NumericalParam(min=0.01,    max=2,      small_step=0.1,     big_step=1,     default=0.3,    formatter='%3.1f',  units_string='%%',  label='Bandwidth'),
-    'brightness':   NumericalParam(min=0,       max=2,      small_step=0.01,    big_step=0.1,   default=0.5,    formatter='%4.2f',  units_string='',    label='Brightness'),
-})
+    'domain_size':  NumericalParam(min=100,     max=100000, small_step=100,     big_step=1000,  default=1000,   formatter='%4.0f',  units_string=' Å',  label='Domain size (each edge)',    position=(0,0)),
+    'mos_ang_deg':  NumericalParam(min=0.01,    max=5,      small_step=0.01,    big_step=0.1,   default=0.1,    formatter='%4.2f',  units_string='º',   label='Mosaic angle',               position=(0,1)),
+    'ucell_scale_a':NumericalParam(min=0.5,     max=2,      small_step=0.05,    big_step=0.1,   default=1,      formatter='%4.2f',  units_string='',    label='Unit cell scale (a)',        position=(1,0)),
+    'ucell_scale_b':NumericalParam(min=0.5,     max=2,      small_step=0.05,    big_step=0.1,   default=1,      formatter='%4.2f',  units_string='',    label='Unit cell scale (b)',        position=(1,1)),
+    'ucell_scale_c':NumericalParam(min=0.5,     max=2,      small_step=0.05,    big_step=0.1,   default=1,      formatter='%4.2f',  units_string='',    label='Unit cell scale (c)',        position=(1,2)),
+    'rot_x':        NumericalParam(min=-180,    max=180,    small_step=0.1,     big_step=1,     default=0,      formatter='%6.2f',  units_string='º',   label='Rotation (x)',               position=(2,0)),
+    'rot_y':        NumericalParam(min=-180,    max=180,    small_step=0.1,     big_step=1,     default=0,      formatter='%6.2f',  units_string='º',   label='Rotation (y)',               position=(2,1)),
+    'rot_z':        NumericalParam(min=-180,    max=180,    small_step=0.1,     big_step=1,     default=0,      formatter='%6.2f',  units_string='º',   label='Rotation (z)',               position=(2,2)),
+    'diff_gamma':   NumericalParam(min=1,       max=300,    small_step=1,       big_step=10,    default=50,     formatter='%3.0f',  units_string=' Å',  label='Diffuse gamma',              position=(3,0)),
+    'diff_sigma':   NumericalParam(min=0.01,    max=0.7,    small_step=0.01,    big_step=0.05,  default=0.4,    formatter='%4.2f',  units_string=' Å',  label='Diffuse sigma',              position=(3,1)),
+    'diff_aniso':   NumericalParam(min=0.01,    max=10,     small_step=0.1,     big_step=1,     default=1,      formatter='%3.1f',  units_string='',    label='Diffuse anisotropy',         position=(3,2)),
+    'delta_phi':    NumericalParam(min=0.1,     max=5,      small_step=0.05,    big_step=0.5,   default=0.25,   formatter='%3.1f',  units_string='º',   label='Oscillation width',          position=(4,0)),
+    'image':        NumericalParam(min=1,       max=100,    small_step=1,       big_step=10,    default=1,      formatter='%3.0f',  units_string='',    label='Image no.',                  position=(4,1)),
+    'brightness':   NumericalParam(min=0,       max=2,      small_step=0.01,    big_step=0.1,   default=0.5,    formatter='%4.2f',  units_string='',    label='Brightness',                 position=(4,2)),
+    'energy':       NumericalParam(min=6500,    max=12000,  small_step=100,     big_step=1000,  default=9500,   formatter='%5.0f',  units_string=' eV', label='Beam energy',                position=(5,0)),
+    'bandwidth':    NumericalParam(min=0.01,    max=2,      small_step=0.1,     big_step=1,     default=0.3,    formatter='%3.1f',  units_string='%',   label='Bandwidth',                  position=(5,1)),
+}, track_current_param=True)
 params_cat = ParamsHandler({
-    'spectrum_shape':   CategoricalParam(default='SASE (XFEL)',         options=['Monochromatic', 'Gaussian', 'SASE (XFEL)'],                 label='Spectrum shape'),
-    'rotation_mode':    CategoricalParam(default='Stills',              options=['Stills', 'Rotation'],                                       label='Experiment mode'),
-    'diffuse_mode':     CategoricalParam(default='Off',                 options=['Off', 'On'],                                                label='Diffuse scattering'),
-    'reference_mode':   CategoricalParam(default='Simulation only',     options=['Simulation only', 'Overlay with reference'],                label='Display mode'),
-    'Fhkl':             CategoricalParam(default='Off',                 options=['On', 'Off'],                                                label='Use structure factors'),
+    'spectrum_shape':   CategoricalParam(default='SASE (XFEL)',         options=['Monochromatic', 'Gaussian', 'SASE (XFEL)'],                 label='Spectrum shape',           position=(6,0)),
+    'rotation_mode':    CategoricalParam(default='Stills',              options=['Stills', 'Rotation'],                                       label='Experiment mode',          position=(6,1)),
+    'diffuse_mode':     CategoricalParam(default='Off',                 options=['Off', 'On'],                                                label='Diffuse scattering',       position=(6,2)),
+    'reference_mode':   CategoricalParam(default='Simulation only',     options=['Simulation only', 'Overlay with reference'],                label='Display mode',             position=(7,0)),
+    'Fhkl':             CategoricalParam(default='Off',                 options=['On', 'Off'],                                                label='Use structure factors',    position=(7,1)),
 })
-
-params_num = { # numerical
-    'DomainSize':   {'min':100,     'max':100000,   'sstep':100,    'bstep':1000,   'default':1000,     'formatter':'%4.0f',    'units_string':'Å',     'position':(0,0),   'label':'Domain size (each edge)'},
-    'MosAngDeg':    {'min':0.01,    'max':5,        'sstep':0.01,   'bstep':0.1,    'default':0.1001,   'formatter':'%4.2f',    'units_string':'deg',   'position':(0,1),   'label':'Mosaic angle'},
-    'ucell_scale_a':{'min':0.5,     'max':2.,       'sstep':0.05,   'bstep':0.1,    'default':1,        'formatter':'%4.2f',    'units_string':'',      'position':(1,0),   'label':'Unit cell scale (a)'},
-    'ucell_scale_b':{'min':0.5,     'max':2.,       'sstep':0.05,   'bstep':0.1,    'default':1,        'formatter':'%4.2f',    'units_string':'',      'position':(1,1),   'label':'Unit cell scale (b)'},
-    'ucell_scale_c':{'min':0.5,     'max':2.,       'sstep':0.05,   'bstep':0.1,    'default':1,        'formatter':'%4.2f',    'units_string':'',      'position':(1,2),   'label':'Unit cell scale (c)'},
-    'RotX':         {'min':-180,    'max':180,      'sstep':0.1,    'bstep':1,      'default':0,        'formatter':'%6.2f',    'units_string':'deg',   'position':(2,0),   'label':'Rotation (x)'},
-    'RotY':         {'min':-180,    'max':180,      'sstep':0.1,    'bstep':1,      'default':0,        'formatter':'%6.2f',    'units_string':'deg',   'position':(2,1),   'label':'Rotation (y)'},
-    'RotZ':         {'min':-180,    'max':180,      'sstep':0.1,    'bstep':1,      'default':0,        'formatter':'%6.2f',    'units_string':'deg',   'position':(2,2),   'label':'Rotation (z)'},
-    'Diff_gamma':   {'min':1,       'max':300,      'sstep':1,      'bstep':10,     'default':50,       'formatter':'%3.0f',    'units_string':'Å',     'position':(3,0),   'label':'Diffuse gamma'},
-    'Diff_sigma':   {'min':.01,     'max':0.7,      'sstep':.01,    'bstep':0.05,   'default':.4,       'formatter':'%4.2f',    'units_string':'Å',     'position':(3,1),   'label':'Diffuse sigma'},
-    'Diff_aniso':   {'min':.01,     'max':10,       'sstep':.1,     'bstep':1,      'default':1,        'formatter':'%3.1f',    'units_string':'',      'position':(3,2),   'label':'Diffuse anisotropy'},
-    'Delta_phi':    {'min':0.1,     'max':5,        'sstep':0.05,   'bstep':0.5,    'default':0.25,     'formatter':'%3.1f',    'units_string':'deg',   'position':(4,0),   'label':'Oscillation width'},
-    'Image':        {'min':1,       'max':100,      'sstep':1,      'bstep':10,     'default':1,        'formatter':'%3.0f',    'units_string':'',      'position':(4,1),   'label':'Image no.'},
-    'Brightness':   {'min':0,       'max':2,        'sstep':0.01,   'bstep':0.1,    'default':0.5,      'formatter':'%4.2f',    'units_string':'',      'position':(4,2),   'label':'Brightness'},
-    'Energy':       {'min':6500,    'max':12000,    'sstep':10,     'bstep':30,     'default':9500,     'formatter':'%5.0f',    'units_string':'eV',    'position':(5,0),   'label':'Beam energy'},
-    'Bandwidth':    {'min':0.01,    'max':5.01,     'sstep':0.1,    'bstep':1,      'default':0.31,     'formatter':'%3.1f',    'units_string':'%',     'position':(5,1),   'label':'Bandwidth'},
-}
-
-params_cat = { # categorical
-    'spectrum_shape':   {'default':'SASE (XFEL)',       'options':['Monochromatic', 'Gaussian', 'SASE (XFEL)'],                 'position':(6,0),   'label':'Spectrum shape'},
-    'rotation_mode':    {'default':'Stills',            'options':['Stills', 'Rotation'],                                       'position':(6,1),   'label':'Experiment mode'},
-    'diffuse_mode':     {'default':'Off',               'options':['Off', 'On'],                                                'position':(6,2),   'label':'Diffuse scattering'},
-    'reference_mode':   {'default':'Simulation only',   'options':['Simulation only', 'Overlay with reference'],                'position':(7,0),   'label':'Display mode'},
-    'Fhkl':             {'default':'Off',               'options':['On', 'Off'],                                                'position':(7,1),   'label':'Use structure factors'},
-}
 
 class SimView(tk.Frame):
 
@@ -279,11 +365,6 @@ class SimView(tk.Frame):
         self.master = master
         self.params_num = params_num
         self.params_cat = params_cat
-        self.dial_names = list(self.params_num.keys())
-        self.active_dial_names = set(self.dial_names)
-        self.current_dial_name = self.dial_names[0]
-        self.current_dial = self.params_num[self.current_dial_name]
-        self.set_defaults()
 
         symmetry = extract_symmetry_from(pdbfile)
         sg = str(symmetry.space_group_info())
@@ -335,7 +416,7 @@ class SimView(tk.Frame):
         self._pack_canvas()
         self._init_display()
         self._set_visual_defaults()
-        self._update_dial(self.current_dial_name)
+        self._update_dial(self.params_num.current_param_name)
         self.on_toggle_diffuse_mode(skip_gen_image_data=True)
         self.on_toggle_rotation_mode(skip_gen_image_data=True)
         self.on_toggle_spectrum_shape(skip_gen_image_data=True)
@@ -363,14 +444,12 @@ class SimView(tk.Frame):
         """set defaults for font, size, layout, etc."""
         self.default_font = tk.font.nametofont("TkDefaultFont")
         self.default_font.config(family="Helvetica", size=15)
-        self.default_font_string = "Helvetica 15"
-        self.selected_font_string = "Helvetica 15 bold"
-        for categorical_option in self.params_cat.values():
-            menu = categorical_option['control_menu']
+        for categorical_option in self.params_cat.all_params:
+            menu = categorical_option.f_menu
             formatter = menu.nametowidget(menu.menuname)
             formatter.config(font=self.default_font)
-        for numerical_option in self.params_num.values():
-            spinbox = numerical_option['dial_control']
+        for numerical_option in self.params_num.all_params:
+            spinbox = numerical_option.f_ctrl
             spinbox.config(font=self.default_font, width=5)
 
     def _get_miller_index_at_mouse(self, x,y,rot_p):
@@ -392,7 +471,7 @@ class SimView(tk.Frame):
         s = np.array(self.panel.get_lab_coord((xmm, ymm)))
         s /= np.linalg.norm(s)
         s0 = np.array(self.SIM.beam.nanoBragg_constructor_beam.get_unit_s0())
-        wavelen = ENERGY_CONV / self.params_num['Energy']['value']
+        wavelen = ENERGY_CONV / self.params_num.energy.get_value()
         q = col( (s-s0) / wavelen )
         hkl_f = np.array(A_real*q) 
         hkl_i = np.ceil(hkl_f - 0.5)
@@ -435,14 +514,14 @@ class SimView(tk.Frame):
 
             H_str = ""
             if self.annotate_hkl:
-                rot_p = (self.params_num['RotX']['value']*math.pi/180.,
-                         self.params_num['RotY']['value']*math.pi/180.,
-                         self.params_num['RotZ']['value']*math.pi/180.)
+                rot_p = (self.params_num.rot_x.get_value() * math.pi/180.,
+                         self.params_num.rot_y.get_value() * math.pi/180.,
+                         self.params_num.rot_z.get_value() * math.pi/180.)
                 hkl_f, hkl_i = self._get_miller_index_at_mouse(x,y,rot_p)
                 hkl_dist = np.sqrt(np.sum((hkl_f-hkl_i)**2))
 
                 hkl_key = tuple(hkl_i.astype(int))
-                if self.params_cat['Fhkl']['selection'] == 'On':
+                if self.params_cat.Fhkl.get_value() == 'On':
                     if hkl_key in self.amplitude_lookup:
                         amp = self.amplitude_lookup[hkl_key]
                     else:
@@ -454,7 +533,7 @@ class SimView(tk.Frame):
                 hkl_i_str = ", ".join(map(lambda x: "%d"%x, hkl_i))
                 H_str = "hf,kf,lf=({Hf}) |Hdist|={dH:.3f} |F|={F:.6f} Value={Value:.6f}\n".format(
                         Hf=hkl_f_str, Hi=hkl_i_str, F=amp, dH=hkl_dist, Value=self.img_sim[0,int(y),int(x)])
-                if self.params_cat['diffuse_mode']['selection'] == 'On':
+                if self.params_cat.diffuse_mode.get_value() == 'On':
                     gamma_portion = self._get_diffuse_gamma_portion(hkl_f,hkl_i,rot_p)
                     H_str = H_str.rstrip() + " G(q)={diff_fac:.6f}\n".format(diff_fac=gamma_portion)
             return H_str+"({x}, {y}): {resol:.2f} Å".format(resol=resol, x=int(x), y=int(y))
@@ -469,13 +548,6 @@ class SimView(tk.Frame):
         self.ax.set_aspect("equal")
         self.fig.set_size_inches([9.22, 3.8]) 
 
-    def set_defaults(self):
-        """set current values to defaults for all controls"""
-        for specs in self.params_num.values():
-            specs['value'] = specs['default']
-        for specs in self.params_cat.values():
-            specs['selection'] = specs['default']
-
     def _set_trace(self):
         import pdb
         pdb.set_trace()
@@ -484,195 +556,116 @@ class SimView(tk.Frame):
         """create an option menu for selecting params"""
         _options_frame = tk.Frame(self.master)
         _options_frame.pack(side=tk.TOP, expand=tk.NO)
+        self.params_num.all_register_parent_frame(_options_frame)
+        self.params_cat.all_register_parent_frame(_options_frame)
 
-        def make_on_update_dial_command(dial_name, specs):
+        def get_extra_dial_logic(dial_name):
             """set additional responses on updating specific numerical values"""
-            if dial_name in ['Energy', 'Bandwidth']:
-                dial_specific_logic = self.on_update_spectrum
-            elif dial_name in ['Diff_gamma', 'Diff_sigma', 'Diff_aniso']:
-                dial_specific_logic = self.on_update_diffuse_params
+            if dial_name in ['energy', 'bandwidth']:
+                return lambda: self.on_update_spectrum(init=True) # reinit SASE for new energy
+            elif dial_name in ['diff_gamma', 'diff_sigma', 'diff_aniso']:
+                return self.on_update_diffuse_params
             elif dial_name in ['ucell_scale_a', 'ucell_scale_b', 'ucell_scale_c']:
                 axis = dial_name[-1]
-                dial_specific_logic = lambda: self.on_update_ucell(axis)
-            elif dial_name == 'DomainSize':
-                dial_specific_logic = self.on_update_domain_size
-            elif dial_name == 'Brightness':
-                dial_specific_logic = self.on_update_normalization
+                return lambda: self.on_update_ucell(axis)
+            elif dial_name == 'domain_size':
+                return self.on_update_domain_size
+            elif dial_name == 'brightness':
+                return self.on_update_normalization
             else:
-                dial_specific_logic = self._generate_image_data
-            def on_update_dial():
-                specs['value'] = self.params_num[dial_name]['dial_value'].get()
-                dial_specific_logic()
-            return on_update_dial
+                return self._generate_image_data
+            return dial_specific_logic
 
-        for shortname, specs in self.params_num.items():
-            dial_frame = tk.Frame(_options_frame)
-            dial_frame.grid(row=specs['position'][0],
-                            column=specs['position'][1],
-                            sticky='w',
-                            padx=6)
-            dial_label = tk.Label(dial_frame, text=specs['label'])
-            dial_label.pack(side=tk.LEFT, padx=4)
-            if specs['sstep'] >= 1:
-                dial_value = tk.IntVar()
-            else:
-                dial_value = tk.DoubleVar()
-            dial_value.set(specs['default'])
-            specs['value'] = specs['default']
-            command = make_on_update_dial_command(shortname, specs)
-            dial_text = tk.Spinbox(dial_frame,
-                                   from_=specs['min'],
-                                   to=specs['max'],
-                                   increment=specs['sstep'],
-                                   format=specs['formatter'],
-                                   command=command,
-                                   takefocus=0,
-            )
-            dial_text.pack(side=tk.LEFT)
-            dial_text['textvariable'] = dial_value # binding
-            dial_units = tk.Label(dial_frame, text=specs['units_string'])
-            dial_units.pack(side=tk.LEFT)
-            specs['on_update_command'] = command
-            specs['dial_label'] = dial_label
-            specs['dial_value'] = dial_value
-            specs['dial_control'] = dial_text
-            specs['dial_units'] = dial_units
-            #specs['dial_frame'] = dial_frame
+        for dial_name in self.params_num.all_param_names:
+            self.params_num.get_param(dial_name).generate_dial(extra_logic=get_extra_dial_logic(dial_name))
 
-        def make_on_update_menu_command(menu_name, specs):
+        def get_extra_menu_logic(menu_name):
             """set responses for updating menu selections"""
             if menu_name == 'rotation_mode':
-                menu_specific_logic = self.on_toggle_rotation_mode
+                return self.on_toggle_rotation_mode
             elif menu_name == 'spectrum_shape':
-                menu_specific_logic = self.on_toggle_spectrum_shape
+                return self.on_toggle_spectrum_shape
             elif menu_name == 'diffuse_mode':
-                menu_specific_logic = self.on_toggle_diffuse_mode
+                return self.on_toggle_diffuse_mode
             elif menu_name == 'reference_mode':
-                menu_specific_logic = self._display
-            elif menu_name == 'Fhkl':
-                menu_specific_logic = self._generate_image_data
-            def on_update_menu(change):
-                specs['selection'] = specs['control_text'].get()
-                menu_specific_logic()
-            return on_update_menu
+                return self._display
+            else:
+                return self._generate_image_data
 
-        for shortname, specs in self.params_cat.items():
-            choice_frame = tk.Frame(_options_frame)
-            choice_frame.grid(row=specs['position'][0],
-                              column=specs['position'][1],
-                              sticky='w',
-                              padx=6)
-            choice_label = tk.Label(choice_frame, text=specs['label'])
-            choice_label.pack(side=tk.LEFT, padx=4)
-            choice_text = tk.StringVar()
-            choice_text.set(specs['default'])
-            specs['selection'] = specs['default']
-            command = make_on_update_menu_command(shortname, specs)
-            choice_menu = tk.OptionMenu(choice_frame,
-                choice_text,
-                *specs['options'],
-                command=command,
-            )
-            choice_menu.pack(side=tk.LEFT)
-            specs['on_update_command'] = command
-            specs['control_label'] = choice_label
-            specs['control_text'] = choice_text
-            specs['control_menu'] = choice_menu
-            #specs['control_frame'] = choice_frame
+        for menu_name in self.params_cat.all_param_names:
+            self.params_cat.get_param(menu_name).generate_menu(extra_logic=get_extra_menu_logic(menu_name))
 
         # Buttons
-        self.new_pulse_button=tk.Button(_options_frame, command=self.on_new_pulse, text="New XFEL pulse")
-        self.new_pulse_button.grid(row=5, column=2, sticky='n'+'s'+'e'+'w')
-
-        self.randomize_orientation_button=tk.Button(_options_frame, command=self._randomize_orientation, text="Randomize orientation")
-        self.randomize_orientation_button.grid(row=8, column=0, sticky='n'+'s'+'e'+'w')
-
-        self.update_ref_image_button=tk.Button(_options_frame, command=self._update_reference, text="Update reference image")
-        self.update_ref_image_button.grid(row=8, column=1, sticky='n'+'s'+'e'+'w')
-
-        self.reset_all_button=tk.Button(_options_frame, command=self._reset_all, text="Reset all")
-        self.reset_all_button.grid(row=8, column=2, sticky='n'+'s'+'e'+'w')
-
-        #self.pdb_set_trace_button=tk.Button(_options_frame, command=self._set_trace, text="Enter debugger")
-        #self.pdb_set_trace_button.grid(row=8, column=2, sticky='n'+'s'+'e'+'w')
+        self.new_pulse_button=Button(_options_frame, command=self.on_new_pulse, label="New XFEL pulse", position=(5,2))
+        self.randomize_orientation_button=Button(_options_frame, command=self._randomize_orientation, label="Randomize orientation", position=(8,0))
+        self.update_ref_image_button=Button(_options_frame, command=self._update_reference, label="Update reference image", position=(8,1))
+        self.reset_all_button=Button(_options_frame, command=self._reset_all, label="Reset all", position=(8,2))
+        #self.pdb_set_trace_button=Button(_options_frame, command=self._set_trace, label="Enter debugger", position=(9,1))
 
     def on_toggle_rotation_mode(self, new_mode=None, update_selection=False, skip_gen_image_data=False):
         """enforce monochromatic beam, hide/show rotation specific params"""
         if new_mode and update_selection:
-            self.params_cat['rotation_mode']['selection'] = new_mode
-            self.params_cat['rotation_mode']['control_text'].set(new_mode)
-        if self.params_cat['rotation_mode']['selection'] == 'Rotation':
+            self.params_cat.rotation_mode.set_value(new_mode)
+        if self.params_cat.rotation_mode.get_value() == 'Rotation':
             self.on_toggle_spectrum_shape(new_shape='Monochromatic', update_selection=True, skip_gen_image_data=True)
-            self.params_cat['spectrum_shape']['control_menu'].config(state='disabled')
-            for param in ['Delta_phi', 'Image']:
-                for part in ['dial_label', 'dial_control', 'dial_units']:
-                    self.params_num[param][part].configure(state='normal')
-                self.active_dial_names.add(param)
+            self.params_cat.spectrum_shape.disable()
+            self.params_num.delta_phi.enable()
+            self.params_num.image.enable()
         else:
-            self.params_cat['spectrum_shape']['control_menu'].config(state='normal')
-            for param in ['Delta_phi', 'Image']:
-                for part in ['dial_label', 'dial_control', 'dial_units']:
-                    self.params_num[param][part].configure(state='disabled')
-                self.active_dial_names.discard(param)
+            self.params_cat.spectrum_shape.enable()
+            self.params_num.delta_phi.disable()
+            self.params_num.image.disable()
         if not skip_gen_image_data:
             self._generate_image_data()
 
     def on_toggle_spectrum_shape(self, new_shape=None, update_selection=False, skip_gen_image_data=False):
         """set visibility of other controls dependent on spectrum shape"""
         if new_shape and update_selection:
-            self.params_cat['spectrum_shape']['selection'] = new_shape
-            self.params_cat['spectrum_shape']['control_text'].set(new_shape)
-        show_new_pulse = 'disabled'
-        show_bandwidth = 'disabled'
-        if self.params_cat['spectrum_shape']['selection'] == 'SASE (XFEL)':
-            show_new_pulse = 'normal'
-        elif self.params_cat['spectrum_shape']['selection'] == 'Gaussian':
-            show_bandwidth = 'normal'
-        self.new_pulse_button.configure(state=show_new_pulse)
-        for part in ['dial_label', 'dial_control', 'dial_units']:
-            self.params_num['Bandwidth'][part].configure(state=show_bandwidth)
-        if show_bandwidth == 'normal':
-            self.active_dial_names.add('Bandwidth')
-        else:
-            self.active_dial_names.discard('Bandwidth')
+            self.params_cat.spectrum_shape.set_value(new_shape)
+        shape = self.params_cat.spectrum_shape.get_value()
+        if shape == 'SASE (XFEL)':
+            self.new_pulse_button.enable()
+            self.params_num.bandwidth.disable()
+        elif shape == 'Gaussian':
+            self.new_pulse_button.disable()
+            self.params_num.bandwidth.enable()
+        elif shape == 'Monochromatic':
+            self.new_pulse_button.disable()
+            self.params_num.bandwidth.disable()
         self.on_update_spectrum(new_pulse=(new_shape is not None), skip_gen_image_data=skip_gen_image_data)
 
     def on_toggle_diffuse_mode(self, skip_gen_image_data=False):
         """set visibility of diffuse mode params, and enforce mono beam in diffuse mode"""
-        if self.params_cat['diffuse_mode']['selection'] == 'On':
+        if self.params_cat.diffuse_mode.get_value() == 'On':
             self.SIM.D.mosaic_domains = 1
             self.on_toggle_spectrum_shape('Monochromatic', update_selection=True)
-            for param in ['Diff_gamma', 'Diff_sigma', 'Diff_aniso']:
-                for part in ['dial_label', 'dial_control', 'dial_units']:
-                    self.params_num[param][part].configure(state='normal')
-                self.active_dial_names.add(param)
+            for param in [self.params_num.diff_gamma, self.params_num.diff_sigma, self.params_num.diff_aniso]:
+                param.enable()
             self.on_update_diffuse_params()
         else:
             self.SIM.D.mosaic_domains = 100
-            for param in ['Diff_gamma', 'Diff_sigma', 'Diff_aniso']:
-                for part in ['dial_label', 'dial_control', 'dial_units']:
-                    self.params_num[param][part].configure(state='disabled')
-                self.active_dial_names.discard(param)
+            for param in [self.params_num.diff_gamma, self.params_num.diff_sigma, self.params_num.diff_aniso]:
+                param.disable()
         if not skip_gen_image_data:
             self._generate_image_data()
 
     def on_update_spectrum(self, new_pulse=False, init=False, skip_gen_image_data=False):
-        shape = self.params_cat['spectrum_shape']['selection']
+        shape = self.params_cat.spectrum_shape.get_value()
         if shape == "Gaussian":
-            bw = 0.01 * self.params_num['Bandwidth']['value'] * self.params_num['Energy']['value'] # bandwidth in eV
+            bw = 0.01 * self.params_num.bandwidth.get_value() * self.params_num.energy.get_value() # bandwidth in eV
             gfunc = gaussian.term(1, 4 * math.log(2)/(bw**2)) # FWHM of bw, mu == 0
-            self.spectrum_eV = [(energy + self.params_num['Energy']['value'], 1e12 * gfunc.at_x(energy)) \
+            self.spectrum_eV = [(energy + self.params_num.energy.get_value(), 1e12 * gfunc.at_x(energy)) \
                                 for energy in range(-50,51)]
             self.spectrum_Ang = [(12398./energy, flux) for (energy, flux) in self.spectrum_eV]
         elif shape == "SASE (XFEL)":
             if init:
                 self.SASE_iter = self.SASE_sim.generate_recast_renormalized_images(
-                    energy=self.params_num['Energy']['value'], total_flux=1e12)
+                    energy=self.params_num.energy.get_value(), total_flux=1e12)
             if new_pulse or init:
                 self.pulse_energies_Ang, self.flux_list, self.avg_wavelength_Ang = next(self.SASE_iter)
             self.spectrum_Ang = list(zip(self.pulse_energies_Ang, self.flux_list))
         elif shape == "Monochromatic":
-            self.spectrum_Ang = [(12398./self.params_num['Energy']['value'], 1e12)] # single wavelength for computational speed
+            self.spectrum_Ang = [(12398./self.params_num.energy.get_value(), 1e12)] # single wavelength for computational speed
         else:
             raise NotImplementedError("Haven't implemented a spectrum of the requested shape {}".format(shape))
         if not skip_gen_image_data:
@@ -683,9 +676,9 @@ class SimView(tk.Frame):
 
     def on_update_diffuse_params(self, skip_gen_image_data=False):
         """update stored intermediate values"""
-        gamma = self.params_num['Diff_gamma']['value']
-        sigma = self.params_num['Diff_sigma']['value']
-        aniso = self.params_num['Diff_aniso']['value']
+        gamma = self.params_num.diff_gamma.get_value()
+        sigma = self.params_num.diff_sigma.get_value()
+        aniso = self.params_num.diff_aniso.get_value()
         self.diffuse_gamma = (gamma * aniso,
                               gamma,
                               gamma * aniso)
@@ -696,7 +689,6 @@ class SimView(tk.Frame):
         if not skip_gen_image_data:
             self._generate_image_data()
 
-    # Buttons
     def _update_reference(self, _press=None):
         self._generate_image_data(update_ref=True)
 
@@ -715,19 +707,15 @@ class SimView(tk.Frame):
     def _enforce_symmetry_on_controls(self):
         """disable ucell params that cannot be independently adjusted"""
         if not self.b_can_scale:
-          for part in ['dial_label', 'dial_control', 'dial_units']:
-              self.params_num['ucell_scale_b'][part].configure(state='disabled')
-              self.active_dial_names.discard('ucell_scale_b')
+            self.params_num.ucell_scale_b.disable()
         if not self.c_can_scale:
-          for part in ['dial_label', 'dial_control', 'dial_units']:
-              self.params_num['ucell_scale_c'][part].configure(state='disabled')
-              self.active_dial_names.discard('ucell_scale_c')
+            self.params_num.ucell_scale_c.disable()
 
-    def on_update_normalization(self):
+    def on_update_normalization(self, display=True):
         """update normalization"""
-        exponent = self.params_num['Brightness']['value']*2-2
+        exponent = self.params_num.brightness.get_value()*2-2
         self.percentile = 100 - 10**exponent
-        self._normalize_all_image_data(display=False)
+        self._normalize_all_image_data(display=display)
 
     def _normalize_image_data(self, img_data):
         """scale data to [0,1] where variable %ile intensities and above are set to 1."""
@@ -752,32 +740,32 @@ class SimView(tk.Frame):
     def _generate_image_data(self, update_ref=False, display=True):
         """generate image to match requested params"""
         t = time.time()
-        SIM = self.SIM if self.params_cat['Fhkl']['selection'] == 'On' else self.SIM_noSF
-        diffuse_gamma = self.diffuse_gamma if self.params_cat['diffuse_mode']['selection'] == 'On' else None
-        diffuse_sigma = self.diffuse_sigma if self.params_cat['diffuse_mode']['selection'] == 'On' else None
-        if self.params_cat['rotation_mode']['selection'] == 'Rotation':
-            delta_phi = self.params_num['Delta_phi']['value']
+        SIM = self.SIM if self.params_cat.Fhkl.get_value() == 'On' else self.SIM_noSF
+        diffuse_gamma = self.diffuse_gamma if self.params_cat.diffuse_mode.get_value() == 'On' else None
+        diffuse_sigma = self.diffuse_sigma if self.params_cat.diffuse_mode.get_value() == 'On' else None
+        if self.params_cat.rotation_mode.get_value() == 'Rotation':
+            delta_phi = self.params_num.delta_phi.get_value()
             pix = sweep(SIM,
-                delta_phi * (self.params_num['Image']['value'] - 1), # phi_start
+                delta_phi * (self.params_num.image.get_value() - 1), # phi_start
                 delta_phi/10., # phi step for simtbx
                 delta_phi, # phi range summmed in one image
                 self.pfs, self.scaled_ucell,
                 tuple(self.ncells),
                 (0,
                 0,
-                self.params_num['RotZ']['value']*math.pi/180.),
+                self.params_num.rot_z.get_value()*math.pi/180.),
                 spectrum=self.spectrum_Ang,
-                eta_p=self.params_num['MosAngDeg']['value'],
+                eta_p=self.params_num.mos_ang_deg.get_value(),
                 diffuse_gamma=diffuse_gamma,
                 diffuse_sigma=diffuse_sigma)
         else:
             pix = run_simdata(SIM, self.pfs, self.scaled_ucell,
                 tuple(self.ncells),
-                (self.params_num['RotX']['value']*math.pi/180.,
-                self.params_num['RotY']['value']*math.pi/180.,
-                self.params_num['RotZ']['value']*math.pi/180.),
+                (self.params_num.rot_x.get_value()*math.pi/180.,
+                self.params_num.rot_y.get_value()*math.pi/180.,
+                self.params_num.rot_z.get_value()*math.pi/180.),
                 spectrum=self.spectrum_Ang,
-                eta_p=self.params_num['MosAngDeg']['value'],
+                eta_p=self.params_num.mos_ang_deg.get_value(),
                 diffuse_gamma=diffuse_gamma,
                 diffuse_sigma=diffuse_sigma)
         t = time.time()-t
@@ -790,7 +778,7 @@ class SimView(tk.Frame):
 
     def on_update_domain_size(self, skip_gen_image_data=False):
         """given a target domain size (one side length), determine number of cells to use along each axis"""
-        side_length = self.params_num['DomainSize']['value']
+        side_length = self.params_num.domain_size.get_value()
         a, b, c, _, _, _ = self.scaled_ucell
         self.ncells = []
         for side in (a, b, c):
@@ -800,7 +788,7 @@ class SimView(tk.Frame):
 
     def on_update_ucell(self, axis):
         """scale one or more lengths depending on symmetry"""
-        scale = self.params_num[f'ucell_scale_{axis}'.format()]['value']
+        scale = self.params_num.get_param(f'ucell_scale_{axis}'.format()).get_value()
         if axis == "a":
             a = scale * self.ucell[0]
             b = self.scaled_ucell[1] if self.b_can_scale else scale * self.ucell[1]
@@ -827,15 +815,13 @@ class SimView(tk.Frame):
         """initialize the display"""
         self.aximg = self.ax.imshow(self.img_single_channel)
         self._generate_image_data(update_ref=True, display=False)
-        self.on_update_normalization()
-        #self._generate_image_data()
-        #self._normalize_all_image_data()
-        self.canvas.draw()
-        self._annotate()
+        self.on_update_normalization(display=False)
+        #self.canvas.draw()
+        #self._annotate()
 
     def _display(self):
         """display the current image"""
-        if self.params_cat['reference_mode']['selection'] == 'Overlay with reference':
+        if self.params_cat.reference_mode.get_value() == 'Overlay with reference':
             imgdata = self.img_overlay
         else:
             imgdata = self.img_single_channel
@@ -865,85 +851,40 @@ class SimView(tk.Frame):
         #self.master.bind_all("<U>", self._update_reference) # update reference image (in red)
 
     def _update_dial(self, new_dial_name):
-        new_dial = self.params_num[new_dial_name]
-        self.current_dial['dial_label'].config(font=self.default_font_string, fg='black')
-        self.current_dial['dial_units'].config(font=self.default_font_string, fg='black')
-        new_dial['dial_label'].config(font=self.selected_font_string, fg='blue')
-        new_dial['dial_units'].config(font=self.selected_font_string, fg='blue')
-        self.current_dial_name = new_dial_name
-        self.current_dial = new_dial
+        self.params_num.set_active_param(new_dial_name)
         self._display()
 
     def _next_dial(self, tkevent):
-        try:
-            new_dial_name = self.dial_names[self.dial_names.index(self.current_dial_name) + 1]
-            while not new_dial_name in self.active_dial_names:
-                new_dial_name = self.dial_names[self.dial_names.index(new_dial_name) + 1]
-            self._update_dial(new_dial_name)
-        except IndexError:
-            new_dial_name = self.dial_names[0]
-            self._update_dial(new_dial_name)
+        self.params_num.activate_next()
 
     def _prev_dial(self, tkevent):
-        try:
-            new_dial_name = self.dial_names[self.dial_names.index(self.current_dial_name) - 1]
-            while not new_dial_name in self.active_dial_names:
-                new_dial_name = self.dial_names[self.dial_names.index(new_dial_name) - 1]
-            self._update_dial(new_dial_name)
-        except IndexError:
-            pass
-
-    def _set_new_value(self, new_value):
-        self.current_dial['dial_value'].set(new_value)
-        self.current_dial['value'] = new_value
-        self.current_dial['on_update_command']()
+        self.params_num.activate_previous()
 
     def _small_step_up(self, tkevent):
-        this_value = self.current_dial['value']
-        new_value = this_value + self.current_dial['sstep']
-        if new_value > self.current_dial['max']:
-            new_value = self.current_dial['max']
-        self._set_new_value(new_value)
+        dial = self.params_num.current_param
+        dial.set_value(min(dial.get_value() + dial.sstep, dial.max))
 
     def _big_step_up(self, tkevent):
-        this_value = self.current_dial['value']
-        new_value = this_value + self.current_dial['bstep']
-        if new_value > self.current_dial['max']:
-            new_value = self.current_dial['max']
-        self._set_new_value(new_value)
+        dial = self.params_num.current_param
+        dial.set_value(min(dial.get_value() + dial.bstep, dial.max))
 
     def _small_step_down(self, tkevent):
-        this_value = self.current_dial['value']
-        new_value = this_value - self.current_dial['sstep']
-        if new_value < self.current_dial['min']:
-            new_value = self.current_dial['min']
-        self._set_new_value(new_value)
+        dial = self.params_num.current_param
+        dial.set_value(max(dial.get_value() - dial.sstep, dial.min))
 
     def _big_step_down(self, tkevent):
-        this_value = self.current_dial['value']
-        new_value = this_value - self.current_dial['bstep']
-        if new_value < self.current_dial['min']:
-            new_value = self.current_dial['min']
-        self._set_new_value(new_value)
+        dial = self.params_num.current_param
+        dial.set_value(max(dial.get_value() - dial.bstep, dial.min))
 
     def _reset(self, tkevent=None):
-        this_dial = self.params_num[self.current_dial]
-        this_dial['dial_value'].set(this_dial['default'])
-        this_dial['value'] = this_dial['default']
-        this_dial['on_update_command']()
+        self.params_num.current_param.reset()
 
     def _reset_all(self, tkevent=None):
-        for menu in ['diffuse_mode', 'rotation_mode', 'spectrum_shape', 'Fhkl', 'reference_mode']:
-            self.params_cat[menu]['selection'] = self.params_cat[menu]['default']
-            self.params_cat[menu]['control_text'].set(self.params_cat[menu]['default'])
+        self.params_cat.reset_all()
         self.on_toggle_diffuse_mode(skip_gen_image_data=True)
         self.on_toggle_rotation_mode(skip_gen_image_data=True)
         self.on_toggle_spectrum_shape(skip_gen_image_data=True)
-        for dial in self.dial_names:
-            this_dial = self.params_num[dial]
-            this_dial['dial_value'].set(this_dial['default'])
-            this_dial['value'] = this_dial['default']
-            this_dial['on_update_command']()
+        self.params_num.reset_all()
 
 if __name__ == '__main__':
     import sys
