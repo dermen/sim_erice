@@ -186,6 +186,7 @@ class NumericalParam(object):
                                  from_=self.min,
                                  to=self.max,
                                  increment=self.sstep,
+                                 command=self.activate,
                                  format=self.formatter,
                                  textvariable=self.variable)
         self.f_ctrl.pack(side=tk.RIGHT)
