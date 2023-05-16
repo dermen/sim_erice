@@ -189,6 +189,8 @@ class NumericalParam(object):
                                  format=self.formatter,
                                  textvariable=self.variable)
         self.f_ctrl.pack(side=tk.RIGHT)
+        self.f_ctrl.bind("<FocusIn>", self.activate)
+        self.f_ctrl.bind("<FocusOut>", self.deactivate)
         self.f_units = tk.Label(self.frame, text=self.units)
         self.f_units.pack(side=tk.RIGHT)
     def make_command(self, extra_logic):
@@ -214,12 +216,17 @@ class NumericalParam(object):
         for part in (self.f_label, self.f_ctrl, self.f_units):
             part.config(state='disabled')
         self.is_enabled = False
-    def activate(self):
-        for part in (self.f_label, self.f_units):
-            part.config(font='Helvetica 15 bold', fg='blue')
-        self.is_active = True
-        self.f_ctrl.focus_set()
-    def deactivate(self):
+    def activate(self, tkevent=None):
+        if not self.is_active:
+            for part in (self.f_label, self.f_units):
+                part.config(font='Helvetica 15 bold', fg='blue')
+            self.is_active = True
+            self.f_ctrl.focus_set()
+            if hasattr(self, 'handler'):
+                idx = self.handler.all_params.index(self)
+                name = self.handler.all_param_names[idx]
+                self.handler.set_active_param(name)
+    def deactivate(self, tkevent=None):
         for part in (self.f_label, self.f_units):
             part.config(font='Helvetica 15', fg='black')
         self.is_active = False
@@ -310,6 +317,9 @@ class ParamsHandler(object):
     def all_register_parent_frame(self, parent_frame):
         for param in self.all_params:
             param.register_parent_frame(parent_frame)
+    def all_register_handler(self):
+        for param in self.all_params:
+            param.handler = self
     def get_param(self, param_name):
         return self.__getattribute__(param_name)
     def reset_all(self, callbacks=True):
@@ -598,7 +608,9 @@ class SimView(tk.Frame):
         _options_frame = tk.Frame(self.master)
         _options_frame.pack(side=tk.TOP, expand=tk.NO)
         self.params_num.all_register_parent_frame(_options_frame)
+        self.params_num.all_register_handler()
         self.params_cat.all_register_parent_frame(_options_frame)
+        self.params_cat.all_register_handler()
 
         def get_extra_dial_logic(dial_name):
             """set additional responses on updating specific numerical values"""
