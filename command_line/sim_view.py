@@ -636,9 +636,8 @@ class SimView(tk.Frame):
         self.on_update_spectrum(new_pulse=(new_shape is not None), skip_gen_image_data=skip_gen_image_data)
 
     def on_toggle_diffuse_mode(self, skip_gen_image_data=False):
-        """set visibility of diffuse mode params, and enforce mono beam in diffuse mode"""
+        """set visibility of diffuse mode params"""
         if self.params_cat.diffuse_mode.get_value() == 'On':
-            self.on_toggle_spectrum_shape('Monochromatic', update_selection=True)
             for param in [self.params_num.diff_gamma, self.params_num.diff_sigma, self.params_num.diff_aniso]:
                 param.enable()
             self.on_update_diffuse_params()
