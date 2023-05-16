@@ -187,7 +187,6 @@ class NumericalParam(object):
                                  to=self.max,
                                  increment=self.sstep,
                                  format=self.formatter,
-                                 command=self.command,
                                  textvariable=self.variable)
         self.f_ctrl.pack(side=tk.RIGHT)
         self.f_units = tk.Label(self.frame, text=self.units)
@@ -201,7 +200,7 @@ class NumericalParam(object):
             return self.variable.get()
         else:
             return self.default
-    def set_value(self, new_value, callbacks=True):
+    def set_value(self, new_value, callbacks=False):
         self.variable.set(new_value)
         if callbacks:
             self.command()
@@ -906,19 +905,21 @@ class SimView(tk.Frame):
 
     def _small_step_up(self, tkevent):
         dial = self.params_num.current_param
-        dial.set_value(min(dial.get_value() + dial.sstep, dial.max))
+        dial.command() # step already registered by binding to arrow keys
 
     def _big_step_up(self, tkevent):
         dial = self.params_num.current_param
-        dial.set_value(min(dial.get_value() + dial.bstep, dial.max))
+        dial.set_value(min(dial.get_value() + dial.bstep - dial.sstep, dial.max), callbacks=True)
+        # adjust by small_step less than big_step because small_step already registered
 
     def _small_step_down(self, tkevent):
         dial = self.params_num.current_param
-        dial.set_value(max(dial.get_value() - dial.sstep, dial.min))
+        dial.command() # step already registered by binding to arrow keys
 
     def _big_step_down(self, tkevent):
         dial = self.params_num.current_param
-        dial.set_value(max(dial.get_value() - dial.bstep, dial.min))
+        dial.set_value(max(dial.get_value() - dial.bstep + dial.sstep, dial.min), callbacks=True)
+        # adjust by small_step less than big_step because small_step already registered
 
     def _reset(self, tkevent=None):
         self.params_num.current_param.reset()
