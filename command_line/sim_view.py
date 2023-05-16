@@ -219,6 +219,7 @@ class NumericalParam(object):
         for part in (self.f_label, self.f_units):
             part.config(font='Helvetica 15 bold', fg='blue')
         self.is_active = True
+        self.f_ctrl.focus_set()
     def deactivate(self):
         for part in (self.f_label, self.f_units):
             part.config(font='Helvetica 15', fg='black')
@@ -877,6 +878,8 @@ class SimView(tk.Frame):
         self.master.bind_all("<Shift-R>", self._reset_all) # reset all controls to default settings
         self.master.bind_all("<space>", self.on_new_pulse) # repeat the simulation with a new spectrum
 
+        self.master.bind_all("<Return>", self._register_change) # Register an updated value typed into a spinbox
+
         self.master.bind_all("<Left>", self._prev_dial)
         self.master.bind_all("<p>", self._prev_dial)
         self.master.bind_all("<Right>", self._next_dial)
@@ -887,6 +890,9 @@ class SimView(tk.Frame):
         #self.master.bind_all("<D>", self._toggle_diffuse_scattering) # toggle diffuses scattering on/off
         #self.master.bind_all("<O>", self._randomize_orientation) # randomize crystal orientation
         #self.master.bind_all("<U>", self._update_pinned) # update pinned image (in red)
+
+    def _register_change(self, tkevent):
+        self.params_num.current_param.command()
 
     def _update_dial(self, new_dial_name):
         self.params_num.set_active_param(new_dial_name)
