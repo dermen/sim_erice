@@ -222,10 +222,8 @@ class NumericalParam(object):
                 part.config(font='Helvetica 15 bold', fg='blue')
             self.is_active = True
             self.f_ctrl.focus_set()
-            if hasattr(self, 'handler'):
-                idx = self.handler.all_params.index(self)
-                name = self.handler.all_param_names[idx]
-                self.handler.set_active_param(name)
+            if hasattr(self, 'handler') and not self.handler.current_param is self:
+                self.handler.set_active_param_by_object(self)
     def deactivate(self, tkevent=None):
         for part in (self.f_label, self.f_units):
             part.config(font='Helvetica 15', fg='black')
@@ -304,16 +302,8 @@ class ParamsHandler(object):
             self.__setattr__(key, value)
             self.all_param_names.append(key)
             self.all_params.append(value)
-        if track_current_param:
-            try:
-                self.current_param_name = self.get_enabled_param_names()[0]
-                self.current_param = self.__getattribute__(self.current_param_name)
-            except IndexError:
-                self.current_param_name = None
-                self.current_param = None
-        else:
-            self.current_param_name = None
-            self.current_param = None
+        self.current_param_name = None
+        self.current_param = None
     def all_register_parent_frame(self, parent_frame):
         for param in self.all_params:
             param.register_parent_frame(parent_frame)
@@ -322,34 +312,34 @@ class ParamsHandler(object):
             param.handler = self
     def get_param(self, param_name):
         return self.__getattribute__(param_name)
+    def get_param_name(self, param):
+        idx = self.all_params.index(param)
+        return self.all_param_names[idx]
     def reset_all(self, callbacks=True):
         for param_name in self.all_param_names:
             self.get_param(param_name).reset(callbacks=callbacks)
     def get_enabled_param_names(self):
         return [name for name in self.all_param_names if self.get_param(name).is_enabled]
-    def set_active_param(self, new_param_name):
-        self.current_param_name = None
-        self.current_param = None
-        for (name, param) in zip(self.all_param_names, self.all_params):
-            if name == new_param_name:
-                param.activate()
-                self.current_param_name = new_param_name
-                self.current_param = param
-            else:
-                param.deactivate()
-        if not self.current_param_name:
-            self.current_param_name = self.get_enabled_param_names()[0]
-            self.current_param = self.get_param(self.current_param_name)
-    def get_active_param(self):
-        try:
-            return [param for param in self.all_params if param.is_active][0]
-        except IndexError:
-            return None
+    def set_active_param_by_object(self, new_param):
+        if self.current_param is not new_param:
+            if self.current_param is not None:
+                self.current_param.deactivate()
+            self.current_param_name = self.get_param_name(new_param)
+            self.current_param = new_param
+            self.current_param.activate()
+    def set_active_param_by_name(self, new_param_name):
+        if self.current_param_name != new_param_name:
+            if self.current_param is not None:
+                self.current_param.deactivate()
+            self.current_param_name = new_param_name
+            self.current_param = self.get_param(new_param_name)
+            self.current_param.activate()
     def activate_next(self, direction=1):
         if self.current_param_name is None:
             try:
                 self.current_param_name = self.get_enabled_param_names()[0]
                 self.current_param = self.get_param(self.current_param_name)
+                self.current_param.activate()
             except IndexError:
                 return
         else:
@@ -502,6 +492,7 @@ class SimView(tk.Frame):
         for numerical_option in self.params_num.all_params:
             spinbox = numerical_option.f_ctrl
             spinbox.config(font=self.default_font, width=5)
+        self.params_num.activate_next()
 
     def _get_miller_index_at_mouse(self, x,y,rot_p):
         t = time.time()
@@ -906,7 +897,7 @@ class SimView(tk.Frame):
         self.params_num.current_param.command()
 
     def _update_dial(self, new_dial_name):
-        self.params_num.set_active_param(new_dial_name)
+        self.params_num.set_active_param_by_name(new_dial_name)
         self._display()
 
     def _next_dial(self, tkevent):
