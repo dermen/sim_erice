@@ -62,7 +62,7 @@ Space bar:          simulate a new stochastic XFEL pulse
 R:                  reset all parameters to defaults
 I:                  toggle between image display modes
 O:                  randomize crystal orientation
-U:                  update reference image (in red)
+U:                  update pinned image (in red)
 
 (Note that matplotlib binds the left arrow key to resetting the field of view,
 so both this effect and selection of the previous parameter will take place
@@ -139,15 +139,15 @@ degree to which this effect is observed.
 
 Further notes on the image viewer: a random orientation can be assigned
 to the crystal by pressing the "Randomize orientation" button any number
-of times. Both the simulated and reference image update in this event.
-Outside of this situation, the reference image will be identical to your
+of times. Both the simulated and pinned image update in this event.
+Outside of this situation, the pinned image will be identical to your
 starting default parameters and can be updated to current parameters by
-pressing "Update reference". This can help highlight the difference
+pressing "Update pinned". This can help highlight the difference
 between selected combinations of parameters. Finally, the viewer has
-two display modes, one in which the reference image is displayed in red
+two display modes, one in which the pinned image is displayed in red
 and the current simulation is displayed in blue (with perfect overlap
 resulting in white or gray), and one in which only the simulation is
-shown. You can press "Show reference image" to switch between these.
+shown. You can press "Show pinned image" to switch between these.
 """
 
 class NumericalParam(object):
@@ -353,7 +353,7 @@ params_cat = ParamsHandler({
     'spectrum_shape':   CategoricalParam(default='SASE (XFEL)',         options=['Monochromatic', 'Gaussian', 'SASE (XFEL)'],                 label='Spectrum shape',           position=(6,0)),
     'rotation_mode':    CategoricalParam(default='Stills',              options=['Stills', 'Rotation'],                                       label='Experiment mode',          position=(6,1)),
     'diffuse_mode':     CategoricalParam(default='Off',                 options=['Off', 'On'],                                                label='Diffuse scattering',       position=(6,2)),
-    'reference_mode':   CategoricalParam(default='Simulation only',     options=['Simulation only', 'Overlay with reference'],                label='Display mode',             position=(7,0)),
+    'pinned_mode':      CategoricalParam(default='Simulation only',     options=['Simulation only', 'Overlay with pinned'],                   label='Display mode',             position=(7,0)),
     'Fhkl':             CategoricalParam(default='Off',                 options=['On', 'Off'],                                                label='Use structure factors',    position=(7,1)),
 })
 
@@ -588,7 +588,7 @@ class SimView(tk.Frame):
                 return self.on_toggle_spectrum_shape
             elif menu_name == 'diffuse_mode':
                 return self.on_toggle_diffuse_mode
-            elif menu_name == 'reference_mode':
+            elif menu_name == 'pinned_mode':
                 return self._display
             else:
                 return self._generate_image_data
@@ -599,7 +599,7 @@ class SimView(tk.Frame):
         # Buttons
         self.new_pulse_button=Button(_options_frame, command=self.on_new_pulse, label="New XFEL pulse", position=(5,2))
         self.randomize_orientation_button=Button(_options_frame, command=self._randomize_orientation, label="Randomize orientation", position=(8,0))
-        self.update_ref_image_button=Button(_options_frame, command=self._update_reference, label="Update reference image", position=(8,1))
+        self.update_ref_image_button=Button(_options_frame, command=self._update_pinned, label="Update pinned image", position=(8,1))
         self.reset_all_button=Button(_options_frame, command=self._reset_all, label="Reset all", position=(8,2))
         #self.pdb_set_trace_button=Button(_options_frame, command=self._set_trace, label="Enter debugger", position=(9,1))
 
@@ -687,7 +687,7 @@ class SimView(tk.Frame):
         if not skip_gen_image_data:
             self._generate_image_data()
 
-    def _update_reference(self, _press=None):
+    def _update_pinned(self, _press=None):
         self._generate_image_data(update_ref=True)
 
     def _check_symmetry(self):
@@ -819,7 +819,7 @@ class SimView(tk.Frame):
 
     def _display(self):
         """display the current image"""
-        if self.params_cat.reference_mode.get_value() == 'Overlay with reference':
+        if self.params_cat.pinned_mode.get_value() == 'Overlay with pinned':
             imgdata = self.img_overlay
         else:
             imgdata = self.img_single_channel
@@ -842,11 +842,11 @@ class SimView(tk.Frame):
         self.master.bind_all("<Right>", self._next_dial)
         self.master.bind_all("<n>", self._next_dial)
 
-        #self.master.bind_all("<I>", self._toggle_image_mode) # toggle displaying reference image
+        #self.master.bind_all("<I>", self._toggle_image_mode) # toggle displaying pinned image
         #self.master.bind_all("<F>", self._toggle_Fhkl) # toggle using Fhkl to scale intensities
         #self.master.bind_all("<D>", self._toggle_diffuse_scattering) # toggle diffuses scattering on/off
         #self.master.bind_all("<O>", self._randomize_orientation) # randomize crystal orientation
-        #self.master.bind_all("<U>", self._update_reference) # update reference image (in red)
+        #self.master.bind_all("<U>", self._update_pinned) # update pinned image (in red)
 
     def _update_dial(self, new_dial_name):
         self.params_num.set_active_param(new_dial_name)
