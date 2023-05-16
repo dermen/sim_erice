@@ -130,7 +130,7 @@ spectrum shape when calculating diffuse signal, as the SASE and Gaussian
 spectra are more computationally expensive and this effect stacks with
 diffuse scattering also being more computationally expensive. Diffuse
 scattering effects may be more readily visible when using a domain size
-above 100000 Ångstroms.
+above 10000 Ångstroms.
 
 Diff_gamma and diff_sigma: parameters describing the diffuse scattering
 signal produced by long-range correlations. Gamma denotes the correlation
