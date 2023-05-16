@@ -887,7 +887,7 @@ class SimView(tk.Frame):
 if __name__ == '__main__':
     import sys
     if len(sys.argv) > 1:
-        if "-h" in sys.argv:
+        if "-h" in sys.argv or "--help" in sys.argv:
             print(help_message)
             exit()
         if "-f" in sys.argv:
