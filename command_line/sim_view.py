@@ -126,7 +126,11 @@ Diffuse scattering: this physical effect is a result of variation and
 imperfection within the crystal and surrounding solvent, and it appears
 as X-ray scattering between and around the Bragg peaks. Modeling this
 can be toggled on or off. It is recommended to use the monochromatic
-spectrum setting when calculating diffuse signal.
+spectrum shape when calculating diffuse signal, as the SASE and Gaussian
+spectra are more computationally expensive and this effect stacks with
+diffuse scattering also being more computationally expensive. Diffuse
+scattering effects may be more readily visible when using a domain size
+above 100000 Ångstroms.
 
 Diff_gamma and diff_sigma: parameters describing the diffuse scattering
 signal produced by long-range correlations. Gamma denotes the correlation
