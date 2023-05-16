@@ -254,6 +254,41 @@ class CategoricalParam(NumericalParam):
             part.config(state='disabled')
         self.is_enabled = False
 
+class RadioParam(CategoricalParam):
+    def generate_menu(self, extra_logic=lambda: None):
+        self.frame = tk.Frame(self.parent_frame)
+        self.frame.grid(row=self.position[0], column=self.position[1],
+                        sticky='w', padx=6)
+        self.f_label = tk.Label(self.frame, text=self.label)
+        self.f_label.pack(side=tk.LEFT, padx=4)
+        self.intvar = tk.IntVar()
+        self.intvar.set(self.options.index(self.default))
+        self.command = self.make_command(extra_logic=extra_logic)
+        self.option_radios = []
+        for i, option in enumerate(self.options):
+            radio = tk.Radiobutton(self.frame,
+                                   text=option,
+                                   variable=self.intvar,
+                                   value=i,
+                                   command=self.command)
+            radio.pack(anchor=tk.W)
+            self.option_radios.append(radio)
+    def get_value(self):
+        return self.options[self.intvar.get()]
+    def set_value(self, new_value):
+        self.intvar.set(self.options.index(new_value))
+    def reset(self):
+        self.intvar.set(self.options.index(self.default))
+    def enable(self):
+        for part in [self.f_label] + self.option_radios:
+            part.config(state='normal')
+        self.is_enabled = True
+    def disable(self):
+        for part in [self.f_label] + self.option_radios:
+            part.config(state='disabled')
+        self.is_enabled = False
+
+
 class ParamsHandler(object):
     def __init__(self, dict_, track_current_param=False):
         self.all_param_names = []
@@ -356,9 +391,9 @@ params_num = ParamsHandler({
 params_cat = ParamsHandler({
     'spectrum_shape':   CategoricalParam(default='SASE (XFEL)',         options=['Monochromatic', 'Gaussian', 'SASE (XFEL)'],                 label='Spectrum shape',           position=(6,0)),
     'rotation_mode':    CategoricalParam(default='Stills',              options=['Stills', 'Rotation'],                                       label='Experiment mode',          position=(6,1)),
-    'diffuse_mode':     CategoricalParam(default='Off',                 options=['Off', 'On'],                                                label='Diffuse scattering',       position=(6,2)),
-    'pinned_mode':      CategoricalParam(default='Simulation only',     options=['Simulation only', 'Overlay with pinned'],                   label='Display mode',             position=(7,0)),
-    'Fhkl':             CategoricalParam(default='Off',                 options=['On', 'Off'],                                                label='Use structure factors',    position=(7,1)),
+    'diffuse_mode':     RadioParam(default='Off',                       options=['Off', 'On'],                                                label='Diffuse scattering',       position=(6,2)),
+    'pinned_mode':      RadioParam(default='Simulation only',           options=['Simulation only', 'Overlay with pinned'],                   label='Display mode',             position=(7,0)),
+    'Fhkl':             RadioParam(default='Off',                       options=['On', 'Off'],                                                label='Use structure factors',    position=(7,1)),
 })
 
 class SimView(tk.Frame):
@@ -450,9 +485,10 @@ class SimView(tk.Frame):
         self.default_font = tk.font.nametofont("TkDefaultFont")
         self.default_font.config(family="Helvetica", size=15)
         for categorical_option in self.params_cat.all_params:
-            menu = categorical_option.f_menu
-            formatter = menu.nametowidget(menu.menuname)
-            formatter.config(font=self.default_font)
+            if hasattr(categorical_option, 'f_menu'):
+                menu = categorical_option.f_menu
+                formatter = menu.nametowidget(menu.menuname)
+                formatter.config(font=self.default_font)
         for numerical_option in self.params_num.all_params:
             spinbox = numerical_option.f_ctrl
             spinbox.config(font=self.default_font, width=5)
