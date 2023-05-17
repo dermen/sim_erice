@@ -959,20 +959,21 @@ if __name__ == '__main__':
             print("Could not load default model file. Please supply one on the command line.")
             exit()
 
-
-    root = tk.Tk()
-    def _close_window():
-        root.quit()
-        root.destroy()
-    root.protocol("WM_DELETE_WINDOW", _close_window)
-    
-    root.title("SimView")
-
-    root.geometry('1920x1140')
-    
-    frame = SimView(root, params_num, params_cat, pdbfile)
-    
-    frame.pack( side=tk.TOP, expand=tk.NO)
-    root.mainloop()
+    from simtbx.diffBragg.device import DeviceWrapper
+    with DeviceWrapper(0) as _:
+        root = tk.Tk()
+        def _close_window():
+            root.quit()
+            root.destroy()
+        root.protocol("WM_DELETE_WINDOW", _close_window)
+        
+        root.title("SimView")
+        
+        root.geometry('1920x1140')
+        
+        frame = SimView(root, params_num, params_cat, pdbfile)
+        
+        frame.pack( side=tk.TOP, expand=tk.NO)
+        root.mainloop()
 #
 
