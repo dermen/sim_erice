@@ -54,21 +54,11 @@ for mosaic block size, beam energy and bandpass, etc. that you can change by
 adjusting each of the dials. Parameters to be adjusted can be selected either
 with the drop-down menu or with keyboard shortcuts as follows:
 
-Left arrow or p:    previous parameter
-Right arrow or n:   next parameter
 Up arrow:           increase this parameter
 Down arrow:         decrease this parameter
 Shift-up arrow:     increase this parameter a lot
 Shift-down arrow:   decrease this parameter a lot
-Space bar:          simulate a new stochastic XFEL pulse
-R:                  reset all parameters to defaults
-I:                  toggle between image display modes
-O:                  randomize crystal orientation
-U:                  update pinned image (in red)
-
-(Note that matplotlib binds the left arrow key to resetting the field of view,
-so both this effect and selection of the previous parameter will take place
-if you are zoomed in on an area. The right arrow key can restore the zoom.)
+Return:             finalize a changed typed directly into the box
 
 Explanation of parameters:
 
@@ -858,16 +848,11 @@ class SimView(tk.Frame):
         """key bindings"""
         self.master.bind_all("<Shift-Up>", self._big_step_up) # increase this parameter a lot
         self.master.bind_all("<Shift-Down>", self._big_step_down) # decrease this parameter a lot
-        self.master.bind_all("<R>", self._reset)  # reset this dial to default value
-        self.master.bind_all("<Shift-R>", self._reset_all) # reset all controls to default settings
-        self.master.bind_all("<space>", self.on_new_pulse) # repeat the simulation with a new spectrum
+        #self.master.bind_all("<R>", self._reset)  # reset this dial to default value
+        #self.master.bind_all("<Shift-R>", self._reset_all) # reset all controls to default settings
+        #self.master.bind_all("<space>", self.on_new_pulse) # repeat the simulation with a new spectrum
 
         self.master.bind_all("<Return>", self._register_change) # Register an updated value typed into a spinbox
-
-        self.master.bind_all("<Left>", self._prev_dial)
-        self.master.bind_all("<p>", self._prev_dial)
-        self.master.bind_all("<Right>", self._next_dial)
-        self.master.bind_all("<n>", self._next_dial)
 
         #self.master.bind_all("<I>", self._toggle_image_mode) # toggle displaying pinned image
         #self.master.bind_all("<F>", self._toggle_Fhkl) # toggle using Fhkl to scale intensities
@@ -881,12 +866,6 @@ class SimView(tk.Frame):
     def _update_dial(self, new_dial_name):
         self.params_num.set_active_param_by_name(new_dial_name)
         self._display()
-
-    def _next_dial(self, tkevent):
-        self.params_num.activate_next()
-
-    def _prev_dial(self, tkevent):
-        self.params_num.activate_previous()
 
     def _big_step_up(self, tkevent):
         dial = self.params_num.current_param
