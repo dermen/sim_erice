@@ -218,7 +218,7 @@ class NumericalParam(object):
             part.config(state='disabled')
         self.is_enabled = False
     def activate(self, tkevent=None):
-        if not self.is_active:
+        if hasattr(self, 'is_active') and not self.is_active:
             self.f_label.config(font='Helvetica 15 bold', fg='blue')
             self.is_active = True
             self.f_ctrl.focus_set()
