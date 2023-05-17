@@ -9,10 +9,6 @@ Run without any arguments, this program simulates diffraction of a small lysozym
 Diffraction from your crystal will be simulated with a set of default parameters for mosaic block size, beam energy and bandpass, etc. that you can change by adjusting each of the dials. Parameters to be adjusted can be selected either with the drop-down menu or with keyboard shortcuts as follows:
 
 
-**Left arrow or p:**    previous parameter
-
-**Right arrow or n:**   next parameter
-
 **Up arrow:**           increase this parameter
 
 **Down arrow:**         decrease this parameter
@@ -21,20 +17,7 @@ Diffraction from your crystal will be simulated with a set of default parameters
 
 **Shift-down arrow:**   decrease this parameter a lot
 
-**Space bar:**          simulate a new stochastic XFEL pulse
-
-**R:**                  reset all parameters to defaults
-
-**I:**                  toggle between image display modes
-
-**S:**                  toggle spectrum shape
-
-**O:**                  randomize crystal orientation
-
-**U:**                  update reference image (in red)
-
-
-(Note that matplotlib binds the left arrow key to resetting the field of view, so both this effect and selection of the previous parameter will take place if you are zoomed in on an area. The right arrow key can restore the zoom.)
+**Return:**             finalize a changed parameter typed directly into the box
 
 ## Explanation of parameters:
 
@@ -50,7 +33,7 @@ Diffraction from your crystal will be simulated with a set of default parameters
 
 **Spectrum shape:** to simulate images with real SASE spectra, toggle this option to "SASE". To display diffraction produced by a smooth Gaussian function that can be adjusted in energy and bandwidth, toggle this to "Gaussian". SASE spectra are stochastic and will intentionally not be modified by the energy and bandwidth controls. The "monochromatic" option is recommended when diffuse scattering is enabled, to offset the greater computational cost.
 
-**Fhkl:** when we observe diffraction from a single particle, we are seeing the Fourier transform of the particle, with [a great deal of] added noise. For many copies of a particle all in the same orientation, we can expect the signal to be much stronger. If these aligned particles are also periodically spaced, as in the context of a crystal, they act as a diffraction grating, and we see this signal only at positions of constructive interference (the reciprocal lattice points in diffracting conditions, i.e. Bragg peaks). In order to better see the effects of the above parameters, we can ignore the Fourier transform of the asymmetric unit and pretend all of the Bragg peaks have uniform intensity. This is what we are simulating when we display "SFs on/off".
+**Fhkl:** when we observe diffraction from a single particle, we are seeing the Fourier transform of the particle, with [a great deal of] added noise. For many copies of a particle all in the same orientation, we can expect the signal to be much stronger. If these aligned particles are also periodically spaced, as in the context of a crystal, they act as a diffraction grating, and we see this signal only at positions of constructive interference (the reciprocal lattice points in diffracting conditions, i.e. Bragg peaks). In order to better see the effects of the above parameters, we can ignore the Fourier transform of the asymmetric unit and pretend all of the Bragg peaks have uniform intensity. This is what we are simulating when we select "Fhkls On/Off".
 
 **Diffuse scattering:** this physical effect is a result of variation and imperfection within the crystal and surrounding solvent, and it appears as X-ray scattering between and around the Bragg peaks. Modeling this can be toggled on or off. It is recommended to use the monochromatic spectrum setting when calculating diffuse signal.
 
@@ -58,4 +41,4 @@ Diffraction from your crystal will be simulated with a set of default parameters
 
 **Diff_aniso:** anisotropic quality to the diffuse scattering. This is arbitrarily assigned directionality, and the adjustible parameter controls the degree to which this effect is observed.
 
-**Further notes on the image viewer:** a random orientation can be assigned to the crystal by pressing the "Randomize orientation" button any number of times. Both the simulated and reference image update in this event. Outside of this situation, the reference image will be identical to your starting default parameters and can be updated to current parameters by pressing "Update reference". This can help highlight the difference between selected combinations of parameters. Finally, the viewer has two display modes, one in which the reference image is displayed in red and the current simulation is displayed in blue (with perfect overlap resulting in white or gray), and one in which only the simulation is shown. You can toggle "Reference image" to switch between these.
+**Further notes on the image viewer:** a random orientation can be assigned to the crystal by pressing the "Randomize orientation" button any number of times. Both the simulated and pinned image update in this event. Outside of this situation, the reference image will be identical to your starting default parameters and can be updated to current parameters by pressing "Update pinned". This can help highlight the difference between selected combinations of parameters. Finally, the viewer has two display modes, one in which the pinned image is displayed in red and the current simulation is displayed in blue (with perfect overlap resulting in white or gray), and one in which only the simulation is shown. You can toggle "Pinned image" to switch between these.
