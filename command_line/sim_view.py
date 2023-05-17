@@ -188,7 +188,7 @@ class NumericalParam(object):
                                  from_=self.min,
                                  to=self.max,
                                  increment=self.sstep,
-                                 command=self.activate,
+                                 command=self.command,
                                  format=self.formatter,
                                  textvariable=self.variable)
         self.f_ctrl.pack(side=tk.RIGHT)
@@ -196,6 +196,7 @@ class NumericalParam(object):
         self.f_ctrl.bind("<FocusOut>", self.deactivate)
     def make_command(self, extra_logic):
         def on_update_dial(tkevent=None):
+            self.activate()
             extra_logic()
         return on_update_dial
     def get_value(self):
@@ -855,9 +856,7 @@ class SimView(tk.Frame):
 
     def bind(self):
         """key bindings"""
-        self.master.bind_all("<Up>", self._small_step_up)  # increase this parameter
         self.master.bind_all("<Shift-Up>", self._big_step_up) # increase this parameter a lot
-        self.master.bind_all("<Down>", self._small_step_down)  # decrease this parameter
         self.master.bind_all("<Shift-Down>", self._big_step_down) # decrease this parameter a lot
         self.master.bind_all("<R>", self._reset)  # reset this dial to default value
         self.master.bind_all("<Shift-R>", self._reset_all) # reset all controls to default settings
@@ -889,22 +888,14 @@ class SimView(tk.Frame):
     def _prev_dial(self, tkevent):
         self.params_num.activate_previous()
 
-    def _small_step_up(self, tkevent):
-        dial = self.params_num.current_param
-        dial.command() # step already registered by binding to arrow keys
-
     def _big_step_up(self, tkevent):
         dial = self.params_num.current_param
-        dial.set_value(min(dial.get_value() + dial.bstep - dial.sstep, dial.max), callbacks=True)
+        dial.set_value(min(dial.get_value() + dial.bstep - dial.sstep, dial.max), callbacks=False)
         # adjust by small_step less than big_step because small_step already registered
-
-    def _small_step_down(self, tkevent):
-        dial = self.params_num.current_param
-        dial.command() # step already registered by binding to arrow keys
 
     def _big_step_down(self, tkevent):
         dial = self.params_num.current_param
-        dial.set_value(max(dial.get_value() - dial.bstep + dial.sstep, dial.min), callbacks=True)
+        dial.set_value(max(dial.get_value() - dial.bstep + dial.sstep, dial.min), callbacks=False)
         # adjust by small_step less than big_step because small_step already registered
 
     def _reset(self, tkevent=None):
