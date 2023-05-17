@@ -273,6 +273,7 @@ class RadioParam(MenuParam):
         self.option_radios = []
         for i, option in enumerate(self.options):
             radio = tk.Radiobutton(self.frame,
+                                   indicatoron=0,
                                    text=option,
                                    variable=self.intvar,
                                    value=i,
