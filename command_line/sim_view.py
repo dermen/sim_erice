@@ -24,7 +24,6 @@ from matplotlib.backends.backend_tkagg import \
 
 import libtbx.load_env
 from sim_erice.on_the_fly_simdata import run_simdata, get_SIM, randomize_orientation, sweep
-from sim_erice.sim_phil import sim_view_phil_scope, categorical_params_options
 from simtbx.nanoBragg.tst_nanoBragg_multipanel import beam, whole_det
 from simtbx.diffBragg import hopper_utils
 from sim_erice.local_spectra import spectra_simulation
@@ -35,7 +34,6 @@ from dxtbx_model_ext import Crystal
 from scitbx import matrix
 from scitbx.math import gaussian
 from dials.array_family import flex
-from dials.util.options import ArgumentParser
 from libtbx import easy_pickle
 from random import randint
 import time
@@ -146,25 +144,25 @@ resulting in white or gray), and one in which only the simulation is
 shown. You can press "Show pinned image" to switch between these.
 """
 
-
 class NumericalParam(object):
-    def __init__(self, params):
-        self.min = params.min
-        self.max = params.max
-        self.sstep = params.small_step
-        self.bstep = params.big_step
-        self.default = params.default
-        self.formatter = params.formatter
-        self.label = params.label
-        self.row = params.row
-        self.column = params.column
+    def __init__(self, min, max, small_step, big_step, default,
+                 formatter='%4.2f', units_string='', label='', position=None):
+        self.min = min
+        self.max = max
+        self.sstep = small_step
+        self.bstep = big_step
+        self.default = default
+        self.formatter = formatter
+        self.units = units_string
+        self.label = label
+        self.position = position
         self.is_enabled = True
         self.is_active = False
     def register_parent_frame(self, parent_frame):
         self.parent_frame = parent_frame
     def generate_dial(self, extra_logic=lambda: None):
         self.frame = tk.Frame(self.parent_frame)
-        self.frame.grid(row=self.row, column=self.column,
+        self.frame.grid(row=self.position[0], column=self.position[1],
                         sticky='w', padx=6)
         self.f_label = tk.Label(self.frame, text=self.label)
         self.f_label.pack(side=tk.LEFT, padx=4)
@@ -184,6 +182,8 @@ class NumericalParam(object):
         self.f_ctrl.pack(side=tk.RIGHT)
         self.f_ctrl.bind("<FocusIn>", self.activate)
         self.f_ctrl.bind("<FocusOut>", self.deactivate)
+        self.f_units = tk.Label(self.frame, text=self.units)
+        self.f_units.pack(side=tk.RIGHT)
     def make_command(self, extra_logic):
         def on_update_dial(tkevent=None):
             self.activate()
@@ -201,36 +201,36 @@ class NumericalParam(object):
     def reset(self, callbacks=True):
         self.set_value(self.default, callbacks=callbacks)
     def enable(self):
-        for part in (self.f_label, self.f_ctrl):
+        for part in (self.f_label, self.f_ctrl, self.f_units):
             part.config(state='normal')
         self.is_enabled = True
     def disable(self):
-        for part in (self.f_label, self.f_ctrl):
+        for part in (self.f_label, self.f_ctrl, self.f_units):
             part.config(state='disabled')
         self.is_enabled = False
     def activate(self, tkevent=None):
         if hasattr(self, 'is_active') and not self.is_active:
-            self.f_label.config(font='Helvetica 15 bold', fg='blue')
+            for part in (self.f_label, self.f_units):
+                part.config(font='Helvetica 15 bold', fg='blue')
             self.is_active = True
             self.f_ctrl.focus_set()
             if hasattr(self, 'handler') and not self.handler.current_param is self:
                 self.handler.set_active_param_by_object(self)
     def deactivate(self, tkevent=None):
-        self.f_label.config(font='Helvetica 15', fg='black')
+        for part in (self.f_label, self.f_units):
+            part.config(font='Helvetica 15', fg='black')
         self.is_active = False
 
-class MenuParam(NumericalParam):
-    def __init__(self, params, scope_name):
-        self.default = params.default
-        self.options = categorical_params_options[scope_name]
-        self.label = params.label
-        self.row = params.row
-        self.column = params.column
-        self.widget = params.widget
+class CategoricalParam(NumericalParam):
+    def __init__(self, default, options, label, position=None):
+        self.default = default
+        self.options = options
+        self.label = label
+        self.position = position
         self.is_enabled = True
     def generate_menu(self, extra_logic=lambda: None):
         self.frame = tk.Frame(self.parent_frame)
-        self.frame.grid(row=self.row, column=self.column,
+        self.frame.grid(row=self.position[0], column=self.position[1],
                         sticky='w', padx=6)
         self.f_label = tk.Label(self.frame, text=self.label)
         self.f_label.pack(side=tk.LEFT, padx=4)
@@ -251,10 +251,10 @@ class MenuParam(NumericalParam):
             part.config(state='disabled')
         self.is_enabled = False
 
-class RadioParam(MenuParam):
+class RadioParam(CategoricalParam):
     def generate_menu(self, extra_logic=lambda: None):
         self.frame = tk.Frame(self.parent_frame)
-        self.frame.grid(row=self.row, column=self.column,
+        self.frame.grid(row=self.position[0], column=self.position[1],
                         sticky='w', padx=6)
         self.f_label = tk.Label(self.frame, text=self.label)
         self.f_label.pack(side=tk.LEFT, padx=4)
@@ -286,13 +286,6 @@ class RadioParam(MenuParam):
             part.config(state='disabled')
         self.is_enabled = False
 
-def gen_cat_param_inst(params, scope_name):
-    if params.widget == 'OptionMenu':
-        return MenuParam(params, scope_name)
-    elif params.widget == 'RadioButtons':
-        return RadioParam(params, scope_name)
-    else:
-        raise Exception("unrecognized widget type %s" % params.widget)
 
 class ParamsHandler(object):
     def __init__(self, dict_, track_current_param=False):
@@ -369,6 +362,32 @@ class Button(object):
         self.button.configure(state='normal')
     def disable(self):
         self.button.configure(state='disabled')
+
+params_num = ParamsHandler({
+    'domain_size':  NumericalParam(min=100,     max=100000, small_step=100,     big_step=1000,  default=1000,   formatter='%4.0f',  units_string=' Å',  label='Domain size (each edge)',    position=(0,0)),
+    'mos_ang_deg':  NumericalParam(min=0.01,    max=5,      small_step=0.01,    big_step=0.1,   default=0.1,    formatter='%4.2f',  units_string='°',   label='Mosaic angle',               position=(0,1)),
+    'ucell_scale_a':NumericalParam(min=0.5,     max=2,      small_step=0.05,    big_step=0.1,   default=1,      formatter='%4.2f',  units_string='',    label='Unit cell scale (a)',        position=(1,0)),
+    'ucell_scale_b':NumericalParam(min=0.5,     max=2,      small_step=0.05,    big_step=0.1,   default=1,      formatter='%4.2f',  units_string='',    label='Unit cell scale (b)',        position=(1,1)),
+    'ucell_scale_c':NumericalParam(min=0.5,     max=2,      small_step=0.05,    big_step=0.1,   default=1,      formatter='%4.2f',  units_string='',    label='Unit cell scale (c)',        position=(1,2)),
+    'rot_x':        NumericalParam(min=-180,    max=180,    small_step=0.1,     big_step=1,     default=0,      formatter='%6.2f',  units_string='°',   label='Rotation (x)',               position=(2,0)),
+    'rot_y':        NumericalParam(min=-180,    max=180,    small_step=0.1,     big_step=1,     default=0,      formatter='%6.2f',  units_string='°',   label='Rotation (y)',               position=(2,1)),
+    'rot_z':        NumericalParam(min=-180,    max=180,    small_step=0.1,     big_step=1,     default=0,      formatter='%6.2f',  units_string='°',   label='Rotation (z)',               position=(2,2)),
+    'diff_gamma':   NumericalParam(min=1,       max=300,    small_step=1,       big_step=10,    default=50,     formatter='%3.0f',  units_string=' Å',  label='Diffuse gamma',              position=(3,0)),
+    'diff_sigma':   NumericalParam(min=0.01,    max=0.7,    small_step=0.01,    big_step=0.05,  default=0.4,    formatter='%4.2f',  units_string=' Å',  label='Diffuse sigma',              position=(3,1)),
+    'diff_aniso':   NumericalParam(min=0.01,    max=10,     small_step=0.1,     big_step=1,     default=3,      formatter='%3.1f',  units_string='',    label='Diffuse anisotropy',         position=(3,2)),
+    'delta_phi':    NumericalParam(min=0.1,     max=5,      small_step=0.05,    big_step=0.5,   default=0.25,   formatter='%3.1f',  units_string='°',   label='Oscillation width',          position=(4,0)),
+    'image':        NumericalParam(min=1,       max=100,    small_step=1,       big_step=10,    default=1,      formatter='%3.0f',  units_string='',    label='Image no.',                  position=(4,1)),
+    'brightness':   NumericalParam(min=0,       max=2,      small_step=0.01,    big_step=0.1,   default=0.5,    formatter='%4.2f',  units_string='',    label='Brightness',                 position=(4,2)),
+    'energy':       NumericalParam(min=6500,    max=12000,  small_step=100,     big_step=1000,  default=9500,   formatter='%5.0f',  units_string=' eV', label='Beam energy',                position=(5,0)),
+    'bandwidth':    NumericalParam(min=0.01,    max=2,      small_step=0.1,     big_step=1,     default=0.3,    formatter='%3.1f',  units_string='%',   label='Bandwidth',                  position=(5,1)),
+}, track_current_param=True)
+params_cat = ParamsHandler({
+    'spectrum_shape':   CategoricalParam(default='SASE (XFEL)',         options=['Monochromatic', 'Gaussian', 'SASE (XFEL)'],                 label='Spectrum shape',           position=(6,0)),
+    'rotation_mode':    CategoricalParam(default='Stills',              options=['Stills', 'Rotation'],                                       label='Experiment mode',          position=(6,1)),
+    'diffuse_mode':     RadioParam(default='Off',                       options=['Off', 'On'],                                                label='Diffuse scattering',       position=(6,2)),
+    'pinned_mode':      RadioParam(default='Simulation only',           options=['Simulation only', 'Overlay with pinned'],                   label='Display mode',             position=(7,0)),
+    'Fhkl':             RadioParam(default='Off',                       options=['On', 'Off'],                                                label='Use structure factors',    position=(7,1)),
+})
 
 class SimView(tk.Frame):
 
@@ -641,7 +660,7 @@ class SimView(tk.Frame):
         if new_shape and update_selection:
             self.params_cat.spectrum_shape.set_value(new_shape)
         shape = self.params_cat.spectrum_shape.get_value()
-        if shape == 'SASE_(XFEL)':
+        if shape == 'SASE (XFEL)':
             self.new_pulse_button.enable()
             self.params_num.bandwidth.disable()
         elif shape == 'Gaussian':
@@ -672,11 +691,11 @@ class SimView(tk.Frame):
             self.spectrum_eV = [(energy + self.params_num.energy.get_value(), 1e12 * gfunc.at_x(energy)) \
                                 for energy in range(-50,51)]
             self.spectrum_Ang = [(12398./energy, flux) for (energy, flux) in self.spectrum_eV]
-        elif shape == "SASE_(XFEL)":
-            if init or not hasattr(self, 'SASE_iter'):
+        elif shape == "SASE (XFEL)":
+            if init:
                 self.SASE_iter = self.SASE_sim.generate_recast_renormalized_images(
                     energy=self.params_num.energy.get_value(), total_flux=1e12)
-            if new_pulse or init or not hasattr(self, 'pulse_energies_Ang'):
+            if new_pulse or init:
                 self.pulse_energies_Ang, self.flux_list, self.avg_wavelength_Ang = next(self.SASE_iter)
             self.spectrum_Ang = list(zip(self.pulse_energies_Ang, self.flux_list))
         elif shape == "Monochromatic":
@@ -836,7 +855,7 @@ class SimView(tk.Frame):
 
     def _display(self):
         """display the current image"""
-        if self.params_cat.pinned_mode.get_value() == 'Overlay_with_pinned':
+        if self.params_cat.pinned_mode.get_value() == 'Overlay with pinned':
             imgdata = self.img_overlay
         else:
             imgdata = self.img_single_channel
@@ -889,34 +908,27 @@ class SimView(tk.Frame):
 
 if __name__ == '__main__':
     import sys
-    if "-h" in sys.argv or "--help" in sys.argv:
-        print(help_message)
-        exit()
-    parser = ArgumentParser(
-        usage=help_message,
-        phil=sim_view_phil_scope
-        )
-    params, options = parser.parse_args(args=sys.argv[1:], show_diff_phil=True)
-    params_num = ParamsHandler({p:NumericalParam(params.numerical_params.__getattribute__(p)) \
-            for p in dir(params.numerical_params) if not p.startswith('_')}, track_current_param=True)
-    params_cat = ParamsHandler({p:gen_cat_param_inst(params.categorical_params.__getattribute__(p), p) \
-            for p in dir(params.categorical_params) if not p.startswith('_')})
-    assert not (params.pdb_file and params.pdb_id), "Conflicting specifications of a model: please supply either a file or a PDB ID, but not both."
-    pdbfile = params.pdb_file
-    if pdbfile is None:
-        if params.pdb_id:
+    if len(sys.argv) > 1:
+        if "-h" in sys.argv or "--help" in sys.argv:
+            print(help_message)
+            exit()
+        if "-f" in sys.argv:
+            sys.argv.remove("-f")
+            pdbid = sys.argv[-1]
             try:
-                pdbfile = get_pdb(params.pdb_id, "pdb", "rcsb", log=sys.stdout, format="pdb")
+                pdbfile = get_pdb(pdbid, "pdb", "rcsb", log=sys.stdout, format="pdb")
             except Exception:
-                print("Couldn't fetch pdb {}. Try fetching with iotbx.fetch_pdb and passing this file as a phil param.".format(params.pdb_id))
+                print("Couldn't fetch pdb {}. Try fetching with iotbx.fetch_pdb.".format(pdbid))
                 exit()
         else:
-            pdbfile = libtbx.env.find_in_repositories(
-                relative_path="sim_erice/4bs7.pdb",
-                test=os.path.isfile)
-    if not pdbfile:
-        print("Could not load model file. Please supply one as a phil parameter.")
-        exit()
+            pdbfile = sys.argv[1]
+    else:
+        pdbfile = libtbx.env.find_in_repositories(
+            relative_path="sim_erice/4bs7.pdb",
+            test=os.path.isfile)
+        if not pdbfile:
+            print("Could not load default model file. Please supply one on the command line.")
+            exit()
 
     from simtbx.diffBragg.device import DeviceWrapper
     with DeviceWrapper(0) as _:
