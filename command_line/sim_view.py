@@ -166,6 +166,8 @@ class NumericalParam(object):
                         sticky='w', padx=6)
         self.f_label = tk.Label(self.frame, text=self.label)
         self.f_label.pack(side=tk.LEFT, padx=4)
+        self.f_units = tk.Label(self.frame, text=self.units)
+        self.f_units.pack(side=tk.RIGHT)
         if self.sstep >= 1:
             self.variable = tk.IntVar()
         else:
@@ -182,8 +184,6 @@ class NumericalParam(object):
         self.f_ctrl.pack(side=tk.RIGHT)
         self.f_ctrl.bind("<FocusIn>", self.activate)
         self.f_ctrl.bind("<FocusOut>", self.deactivate)
-        self.f_units = tk.Label(self.frame, text=self.units)
-        self.f_units.pack(side=tk.RIGHT)
     def make_command(self, extra_logic):
         def on_update_dial(tkevent=None):
             self.activate()
