@@ -45,9 +45,9 @@ help_message="""SimView: lightweight simulator and viewer for diffraction still 
 
 Run without any arguments, this program simulates diffraction of a small
 lysozyme crystal. You may provide a different pdb file on the command line
-instead, or may request the program fetch one from the PDB by supplying its PDB
-ID and the -f flag (for "fetch"). If this fails you may want to try using the
-command line program "iotbx.fetch_pdb" instead.
+instead with the --file flag, or you may attempt to fetch a PDB from the wwPDB
+by passing the 4-letter code with the --fetch flag. If this fails you may want
+to try using the command line program "iotbx.fetch_pdb" instead.
 
 Diffraction from your crystal will be simulated with a set of default parameters
 for mosaic block size, beam energy and bandpass, etc. that you can change by
