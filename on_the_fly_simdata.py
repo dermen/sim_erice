@@ -10,7 +10,7 @@ from dials.array_family import flex
 
 mersenne_twister = flex.mersenne_twister(seed=32)
 
-def get_SIM(dxtbx_det, dxtbx_beam, dxtbx_cryst, Fcalc_pdb=None, defaultF=10, SF=True, oversample=1):
+def get_SIM(dxtbx_det, dxtbx_beam, dxtbx_cryst, Fcalc_pdb=None, defaultF=10, SF=True, oversample=1, mosaic_domains=100):
     """
 
     :param dxtbx_det: detector object
@@ -31,7 +31,7 @@ def get_SIM(dxtbx_det, dxtbx_beam, dxtbx_cryst, Fcalc_pdb=None, defaultF=10, SF=
 
     # mosaic block size
     crystal.Ncells_abc = 10,10,10  # will be update by GUI
-    crystal.n_mos_domains = 100
+    crystal.n_mos_domains = mosaic_domains
     crystal.mos_spread_deg = 1
 
     if Fcalc_pdb is not None:

@@ -414,14 +414,12 @@ class SimView(tk.Frame):
         self.panel.set_frame(fast, slow, offset_orig)
         self.beam_center = self.panel.get_beam_centre_px(self.s0)
 
-        self.SIM = get_SIM(whole_det, beam, cryst, pdbfile, defaultF=0, oversample=self.params_hyper.oversampling)
-        self.SIM.crystal.n_mos_domains = self.params_hyper.mosaic_domains
+        self.SIM = get_SIM(whole_det, beam, cryst, pdbfile, defaultF=0, oversample=self.params_hyper.oversampling, mosaic_domains=self.params_hyper.mosaic_domains)
         self.SIM.D.laue_group_num = get_laue_group_number(str(symmetry.space_group_info()))
         self.SIM.D.stencil_size = 1
         self._make_miller_lookup()  # make a dictionary for faster lookup
         self.default_amp = np.median(self.SIM.crystal.miller_array.data())
-        self.SIM_noSF = get_SIM(whole_det, beam, cryst, pdbfile, defaultF=self.default_amp, SF=False, oversample=self.params_hyper.oversampling)
-        self.SIM_noSF.crystal.n_mos_domains = self.params_hyper.mosaic_domains
+        self.SIM_noSF = get_SIM(whole_det, beam, cryst, pdbfile, defaultF=self.default_amp, SF=False, oversample=self.params_hyper.oversampling, mosaic_domains=self.params_hyper.mosaic_domains)
         self.SIM_noSF.D.laue_group_num = get_laue_group_number(str(symmetry.space_group_info()))
         self.SIM_noSF.D.stencil_size = 1
 
