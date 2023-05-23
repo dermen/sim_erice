@@ -892,6 +892,7 @@ class SimView(tk.Frame):
         #self.master.bind_all("<space>", self.on_new_pulse) # repeat the simulation with a new spectrum
 
         self.master.bind_all("<Return>", self._register_change) # Register an updated value typed into a spinbox
+        self.master.bind_all("<KP_Enter>", self._register_change) # Also recognize numpad Enter key
 
         #self.master.bind_all("<I>", self._toggle_image_mode) # toggle displaying pinned image
         #self.master.bind_all("<F>", self._toggle_Fhkl) # toggle using Fhkl to scale intensities
