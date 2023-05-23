@@ -912,27 +912,29 @@ class SimView(tk.Frame):
 
 if __name__ == '__main__':
     import sys
-    if len(sys.argv) > 1:
-        if "-h" in sys.argv or "--help" in sys.argv:
-            print(help_message)
+    if "-h" in sys.argv or "--help" in sys.argv:
+        print(help_message)
+        exit()
+    if "--fetch" in sys.argv:
+        pos = sys.argv.index("--fetch")
+        sys.argv.pop(pos)
+        pdbid = sys.argv.pop(pos)
+        try:
+            pdbfile = get_pdb(pdbid, "pdb", "rcsb", log=sys.stdout, format="pdb")
+        except Exception:
+            print("Couldn't fetch pdb {}. Try fetching with iotbx.fetch_pdb.".format(pdbid))
             exit()
-        if "-f" in sys.argv:
-            sys.argv.remove("-f")
-            pdbid = sys.argv[-1]
-            try:
-                pdbfile = get_pdb(pdbid, "pdb", "rcsb", log=sys.stdout, format="pdb")
-            except Exception:
-                print("Couldn't fetch pdb {}. Try fetching with iotbx.fetch_pdb.".format(pdbid))
-                exit()
-        else:
-            pdbfile = sys.argv[1]
+    elif "--file" in sys.argv:
+        pos = sys.argv.index("--file")
+        sys.argv.pop(pos)
+        pdbfile = sys.argv.pop(pos)
     else:
         pdbfile = libtbx.env.find_in_repositories(
             relative_path="sim_erice/4bs7.pdb",
             test=os.path.isfile)
-        if not pdbfile:
-            print("Could not load default model file. Please supply one on the command line.")
-            exit()
+    if not pdbfile:
+        print("Could not load model file. Please supply a valid PDB model with the --file flag or a PDB ID with the --fetch flag.")
+        exit()
     parser = ArgumentParser(
         usage=help_message,
         phil=sim_view_phil_scope
