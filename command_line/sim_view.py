@@ -275,7 +275,7 @@ class RadioParam(CategoricalParam):
         return self.options[self.intvar.get()]
     def set_value(self, new_value):
         self.intvar.set(self.options.index(new_value))
-    def reset(self):
+    def reset(self, callbacks=True):
         self.intvar.set(self.options.index(self.default))
     def enable(self):
         for part in [self.f_label] + self.option_radios:
@@ -308,9 +308,9 @@ class ParamsHandler(object):
     def get_param_name(self, param):
         idx = self.all_params.index(param)
         return self.all_param_names[idx]
-    def reset_all(self, callbacks=True):
+    def reset_all(self):
         for param_name in self.all_param_names:
-            self.get_param(param_name).reset(callbacks=callbacks)
+            self.get_param(param_name).reset(callbacks=False)
     def get_enabled_param_names(self):
         return [name for name in self.all_param_names if self.get_param(name).is_enabled]
     def set_active_param_by_object(self, new_param):
@@ -905,6 +905,7 @@ class SimView(tk.Frame):
         self.on_toggle_rotation_mode(skip_gen_image_data=True)
         self.on_toggle_spectrum_shape(skip_gen_image_data=True)
         self.params_num.reset_all()
+        self._generate_image_data()
 
 if __name__ == '__main__':
     import sys
