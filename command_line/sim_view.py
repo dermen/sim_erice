@@ -801,7 +801,7 @@ class SimView(tk.Frame):
                 0,
                 self.params_num.rot_z.get_value()*math.pi/180.),
                 spectrum=self.spectrum_Ang,
-                eta_p=self.params_num.mos_ang_deg.get_value()*math.pi/180,
+                eta_p=self.params_num.mos_ang_deg.get_value(),
                 diffuse_gamma=diffuse_gamma,
                 diffuse_sigma=diffuse_sigma,
                 oversample=self.params_hyper.oversampling)
@@ -812,7 +812,7 @@ class SimView(tk.Frame):
                 self.params_num.rot_y.get_value()*math.pi/180.,
                 self.params_num.rot_z.get_value()*math.pi/180.),
                 spectrum=self.spectrum_Ang,
-                eta_p=self.params_num.mos_ang_deg.get_value()*math.pi/180,
+                eta_p=self.params_num.mos_ang_deg.get_value(),
                 diffuse_gamma=diffuse_gamma,
                 diffuse_sigma=diffuse_sigma)
         t = time.time()-t
