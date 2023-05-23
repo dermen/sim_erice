@@ -960,6 +960,7 @@ if __name__ == '__main__':
     params_hyper, options = parser.parse_args(args=sys.argv[1:],
                                               show_diff_phil=True)
     params_num.image.max = params_hyper.rotation.sweep_n_imgs
+    params_cat.spectrum_shape.default = params_hyper.spectrum_shape
 
     from simtbx.diffBragg.device import DeviceWrapper
     with DeviceWrapper(0) as _:

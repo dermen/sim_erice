@@ -42,6 +42,11 @@ sim_view_phil_scope = phil.parse(
             .help = phi to be covered by a single simulation.
             .help = If provided, this overrides oscillation_n_steps.
         }
-
+    spectrum_shape = SASE (XFEL)
+        .type = str
+        .expert_level=1
+        .help = Enable overriding default spectrum shape to monochromatic for
+        .help = speed, critical when not using GPU, recommended when using
+        .help = diffuse scattering.
     """, process_includes=True)
 
