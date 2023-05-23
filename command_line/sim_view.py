@@ -24,6 +24,7 @@ from matplotlib.backends.backend_tkagg import \
 
 import libtbx.load_env
 from sim_erice.on_the_fly_simdata import run_simdata, get_SIM, randomize_orientation, sweep
+from sim_erice.sim_phil import sim_view_phil_scope
 from simtbx.nanoBragg.tst_nanoBragg_multipanel import beam, whole_det
 from simtbx.diffBragg import hopper_utils
 from sim_erice.local_spectra import spectra_simulation
@@ -31,6 +32,7 @@ from iotbx.crystal_symmetry_from_any import extract_from as extract_symmetry_fro
 from iotbx.pdb.fetch import get_pdb
 from cctbx.uctbx import unit_cell
 from dxtbx_model_ext import Crystal
+from dials.util.options import ArgumentParser
 from scitbx import matrix
 from scitbx.math import gaussian
 from dials.array_family import flex
@@ -391,12 +393,13 @@ params_cat = ParamsHandler({
 
 class SimView(tk.Frame):
 
-    def __init__(self, master, params_num, params_cat, pdbfile, *args, **kwargs):
+    def __init__(self, master, params_num, params_cat, params_hyper, pdbfile, *args, **kwargs):
         tk.Frame.__init__(self, *args, **kwargs)
 
         self.master = master
         self.params_num = params_num
         self.params_cat = params_cat
+        self.params_hyper = params_hyper
 
         symmetry = extract_symmetry_from(pdbfile)
         sg = str(symmetry.space_group_info())
@@ -414,7 +417,7 @@ class SimView(tk.Frame):
         self.SIM = get_SIM(whole_det, beam, cryst, pdbfile, defaultF=0)
         self.SIM.D.laue_group_num = get_laue_group_number(str(symmetry.space_group_info()))
         self.SIM.D.stencil_size = 1
-        self.SIM.D.mosaic_domains = 100
+        self.SIM.D.mosaic_domains = self.params_hyper.mosaic_domains
         self._make_miller_lookup()  # make a dictionary for faster lookup
         self.default_amp = np.median(self.SIM.crystal.miller_array.data())
         self.SIM_noSF = get_SIM(whole_det, beam, cryst, pdbfile, defaultF=self.default_amp, SF=False)
@@ -930,6 +933,12 @@ if __name__ == '__main__':
         if not pdbfile:
             print("Could not load default model file. Please supply one on the command line.")
             exit()
+    parser = ArgumentParser(
+        usage=help_message,
+        phil=sim_view_phil_scope
+        )
+    params_hyper, options = parser.parse_args(args=sys.argv[1:],
+                                              show_diff_phil=True)
 
     from simtbx.diffBragg.device import DeviceWrapper
     with DeviceWrapper(0) as _:
@@ -943,7 +952,7 @@ if __name__ == '__main__':
         
         root.geometry('1920x1140')
         
-        frame = SimView(root, params_num, params_cat, pdbfile)
+        frame = SimView(root, params_num, params_cat, params_hyper, pdbfile)
         
         frame.pack( side=tk.TOP, expand=tk.NO)
         root.mainloop()
