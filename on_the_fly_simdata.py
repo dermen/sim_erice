@@ -32,7 +32,7 @@ def get_SIM(dxtbx_det, dxtbx_beam, dxtbx_cryst, Fcalc_pdb=None, defaultF=10, SF=
     # mosaic block size
     crystal.Ncells_abc = 10,10,10  # will be update by GUI
     crystal.n_mos_domains = mosaic_domains
-    crystal.mos_spread_deg = 1
+    crystal.mos_spread_deg = 1 if mosaic_domains > 1 else 0
 
     if Fcalc_pdb is not None:
         if SF:
@@ -162,7 +162,7 @@ def run_simdata(SIM, pfs, ucell_p, ncells_p, rot_p, spectrum=None, eta_p=None, G
     Bmatrix = ucell_man.B_recipspace   # same as dxtbx crystal .get_B() return value
     SIM.D.Bmatrix = Bmatrix
 
-    if eta_p is not None:
+    if eta_p is not None and SIM.crystal.n_mos_domains > 1:
         # NOTE for eta_p we need to also update how we create the SIM instance
         # see hopper_utils for examples (see methods "SimulatorFromExperiment" and "model")
         # FIXME not sure this is right yet
