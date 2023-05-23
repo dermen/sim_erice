@@ -766,14 +766,28 @@ class SimView(tk.Frame):
         scaled_data[scaled_data > 1] = 1
         return scaled_data
 
+    def _overloads_image_data(self, img_data):
+        """Create an image where values above the maximum in the normalization range are 1 and all other values are 0"""
+        scale = 1./max(1e-50,np.percentile(img_data, self.percentile))
+        scaled_data = img_data * scale
+        scaled_data[scaled_data <= 1] = 0
+        scaled_data[scaled_data > 1] = 1
+        return scaled_data
+
     def _normalize_all_image_data(self, display=True):
         """update intensity scaling for the stored pixel data"""
         t = time.time()
         self.img_overlay[:,:,0] = self._normalize_image_data(self.img_ref[0]) # red channel
         self.img_overlay[:,:,1] = self._normalize_image_data(self.img_sim[0] + self.img_ref[0]) # green channel (grayscale if identical)
         self.img_overlay[:,:,2] = self._normalize_image_data(self.img_sim[0]) # blue channel
+        self.img_single_channel[:,:,0] = 0
         self.img_single_channel[:,:,1] = self._normalize_image_data(self.img_sim[0]) # green channel
         self.img_single_channel[:,:,2] = self._normalize_image_data(self.img_sim[0]) # blue channel
+        # Flag overloads using yellow pixels
+        img_overloads = self._overloads_image_data(self.img_sim[0])
+        self.img_single_channel[:,:,0][img_overloads == 1] = 1
+        self.img_single_channel[:,:,1][img_overloads == 1] = 1
+        self.img_single_channel[:,:,2][img_overloads == 1] = 0
         t = time.time()-t
         print("Time taken to normalize image data: %8.5f seconds"% t)
         if display:
