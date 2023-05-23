@@ -12,5 +12,10 @@ sim_view_phil_scope = phil.parse(
         .type = int
         .expert_level=1
         .help = Number of rotation matrices to model in each simulation.
+    oversampling = 1
+        .type = int
+        .expert_level=1
+        .help = Oversampling of the simulated diffraction in case of e.g.
+        .help = very large domain size and wide mosaic angles.
     """, process_includes=True)
 

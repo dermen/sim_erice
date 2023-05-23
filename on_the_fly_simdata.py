@@ -9,7 +9,7 @@ import numpy as np
 from dials.array_family import flex
 
 
-def get_SIM(dxtbx_det, dxtbx_beam, dxtbx_cryst, Fcalc_pdb=None, defaultF=10, SF=True):
+def get_SIM(dxtbx_det, dxtbx_beam, dxtbx_cryst, Fcalc_pdb=None, defaultF=10, SF=True, oversample=1):
     """
 
     :param dxtbx_det: detector object
@@ -72,7 +72,7 @@ def get_SIM(dxtbx_det, dxtbx_beam, dxtbx_cryst, Fcalc_pdb=None, defaultF=10, SF=
 
     # create the diffbragg object, which is the D attribute of SIM
     SIM.panel_id = 0
-    SIM.instantiate_diffBragg(oversample=1, device_Id=0, default_F=0)
+    SIM.instantiate_diffBragg(oversample=oversample, device_Id=0, default_F=0)
 
     return SIM
 
@@ -100,10 +100,10 @@ def randomize_orientation(SIM, seed_rand=32, seed_mersenne=0):
     site = scitbx.matrix.col(mersenne_twister.random_double_point_on_sphere())
     ori = site.axis_and_angle_as_r3_rotation_matrix(rot[0],deg=False)
     SIM.crystal.dxtbx_crystal.set_U(ori)
-    #SIM.instantiate_diffBragg(oversample=1, device_Id=0, default_F=0)
+    #SIM.instantiate_diffBragg(oversample=oversample, device_Id=0, default_F=0)
     SIM.D.Umatrix = ori
 
-def sweep(SIM, phi_start, phistep, osc_deg, *args, **kwargs):
+def sweep(SIM, phi_start, phistep, osc_deg, *args, oversample=1, **kwargs):
     print("beginning sweep")
     start_ori = SIM.crystal.dxtbx_crystal.get_U()
     SIM.crystal.dxtbx_crystal.rotate_around_origin((0,-1,0), phi_start)
@@ -113,7 +113,7 @@ def sweep(SIM, phi_start, phistep, osc_deg, *args, **kwargs):
         print("step {s} of {n}...".format(s=step, n=n_steps))
         # hard code spindle axis for now
         SIM.crystal.dxtbx_crystal.rotate_around_origin((0,-1,0), phistep)
-        SIM.instantiate_diffBragg(oversample=1, device_Id=0, default_F=0)
+        SIM.instantiate_diffBragg(oversample=oversample, device_Id=0, default_F=0)
         pix = run_simdata(SIM, *args, **kwargs)
         sum_pix += pix
     # reset
