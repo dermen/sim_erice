@@ -610,6 +610,8 @@ class SimView(tk.Frame):
                 return lambda: self.on_update_ucell(axis)
             elif dial_name == 'domain_size':
                 return self.on_update_domain_size
+            elif dial_name == 'delta_phi':
+                return self.on_update_delta_phi
             elif dial_name == 'brightness':
                 return self.on_update_normalization
             else:
@@ -782,9 +784,14 @@ class SimView(tk.Frame):
         diffuse_sigma = self.diffuse_sigma if self.params_cat.diffuse_mode.get_value() == 'On' else None
         if self.params_cat.rotation_mode.get_value() == 'Rotation':
             delta_phi = self.params_num.delta_phi.get_value()
+            if self.params_hyper.rotation.phi_step_size: # override n_steps if provided
+                phi_step = self.params_hyper.rotation.phi_step_size
+            else:
+                phi_n_steps = self.params_hyper.rotation.oscillation_n_steps
+                phi_step = delta_phi/phi_n_steps
             pix = sweep(SIM,
                 delta_phi * (self.params_num.image.get_value() - 1), # phi_start
-                delta_phi/10., # phi step for simtbx
+                phi_step, # phi step for simtbx
                 delta_phi, # phi range summmed in one image
                 self.pfs, self.scaled_ucell,
                 tuple(self.ncells),
@@ -823,6 +830,13 @@ class SimView(tk.Frame):
             self.ncells.append(max(int(round(side_length/side)), 1))
         if not skip_gen_image_data:
             self._generate_image_data()
+
+    def on_update_delta_phi(self):
+        """in case of specified rotation range in degrees, update number of images in the sweep to match"""
+        if self.params_hyper.rotation.sweep_deg:
+            delta_phi = self.params_num.delta_phi.get_value()
+            imgs_in_sweep = self.params_hyper.rotation.sweep_deg // delta_phi
+            self.params_num.image.max = imgs_in_sweep
 
     def on_update_ucell(self, axis):
         """scale one or more lengths depending on symmetry"""
@@ -942,6 +956,7 @@ if __name__ == '__main__':
         )
     params_hyper, options = parser.parse_args(args=sys.argv[1:],
                                               show_diff_phil=True)
+    params_num.image.max = params_hyper.rotation.sweep_n_imgs
 
     from simtbx.diffBragg.device import DeviceWrapper
     with DeviceWrapper(0) as _:
