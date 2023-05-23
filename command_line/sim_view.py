@@ -859,10 +859,10 @@ class SimView(tk.Frame):
         self._generate_image_data()
 
     def _randomize_orientation(self, _press=None):
-        seed1 = randint(0,1024)
-        seed2 = randint(0,1024)
-        randomize_orientation(self.SIM, seed_rand=seed1, seed_mersenne=seed2)
-        randomize_orientation(self.SIM_noSF, seed_rand=seed1, seed_mersenne=seed2)
+        x, y, z = randomize_orientation(self.SIM, track_with=self.SIM_noSF)
+        self.params_num.rot_x.set_value(x)
+        self.params_num.rot_y.set_value(y)
+        self.params_num.rot_z.set_value(z)
         self._generate_image_data(update_ref=True)
 
     def _init_display(self):
