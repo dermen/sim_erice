@@ -23,7 +23,7 @@ from matplotlib.backends.backend_tkagg import \
     FigureCanvasTkAgg, NavigationToolbar2Tk
 
 import libtbx.load_env
-from sim_erice.on_the_fly_simdata import run_simdata, get_SIM, randomize_orientation, sweep
+from sim_erice.on_the_fly_simdata import run_simdata, get_SIM, randomize_orientation, set_orientation, sweep
 from sim_erice.sim_phil import sim_view_phil_scope
 from simtbx.nanoBragg.tst_nanoBragg_multipanel import beam, whole_det
 from simtbx.diffBragg import hopper_utils
@@ -34,7 +34,7 @@ from cctbx.uctbx import unit_cell
 from dxtbx_model_ext import Crystal
 from dials.util.options import ArgumentParser
 from scitbx import matrix
-from scitbx.math import gaussian
+from scitbx.math import gaussian, euler_angles
 from dials.array_family import flex
 from libtbx import easy_pickle
 from random import randint
@@ -374,6 +374,9 @@ params_num = ParamsHandler({
     'rot_x':        NumericalParam(min=-180,    max=180,    small_step=0.1,     big_step=1,     default=0,      formatter='%6.2f',  units_string='°',   label='Rotation (x)',               position=(2,0)),
     'rot_y':        NumericalParam(min=-180,    max=180,    small_step=0.1,     big_step=1,     default=0,      formatter='%6.2f',  units_string='°',   label='Rotation (y)',               position=(2,1)),
     'rot_z':        NumericalParam(min=-180,    max=180,    small_step=0.1,     big_step=1,     default=0,      formatter='%6.2f',  units_string='°',   label='Rotation (z)',               position=(2,2)),
+    'ori_x':        NumericalParam(min=-180,    max=180,    small_step=1,       big_step=10,    default=0,      formatter='%6.2f',  units_string='°',   label='Orientation (x)',            position=(2,3)),
+    'ori_y':        NumericalParam(min=-180,    max=180,    small_step=1,       big_step=10,    default=0,      formatter='%6.2f',  units_string='°',   label='Orientation (y)',            position=(2,4)),
+    'ori_z':        NumericalParam(min=-180,    max=180,    small_step=1,       big_step=10,    default=0,      formatter='%6.2f',  units_string='°',   label='Orientation (z)',            position=(2,5)),
     'diff_gamma':   NumericalParam(min=1,       max=300,    small_step=1,       big_step=10,    default=50,     formatter='%3.0f',  units_string=' Å',  label='Diffuse gamma',              position=(3,0)),
     'diff_sigma':   NumericalParam(min=0.01,    max=0.7,    small_step=0.01,    big_step=0.05,  default=0.4,    formatter='%4.2f',  units_string=' Å',  label='Diffuse sigma',              position=(3,1)),
     'diff_aniso':   NumericalParam(min=0.01,    max=5,     small_step=0.1,     big_step=1,     default=3,      formatter='%3.1f',  units_string='',    label='Diffuse anisotropy',         position=(3,2)),
@@ -406,6 +409,7 @@ class SimView(tk.Frame):
         ucell = symmetry.unit_cell()
         fmat = matrix.sqr(ucell.fractionalization_matrix()).transpose()
         cryst = Crystal(fmat, sg)
+        self.ori = cryst.get_U()
         self.panel = whole_det[0]
         self.s0 = beam.get_unit_s0()
         fast = self.panel.get_fast_axis()
@@ -609,6 +613,8 @@ class SimView(tk.Frame):
             elif dial_name in ['ucell_scale_a', 'ucell_scale_b', 'ucell_scale_c']:
                 axis = dial_name[-1]
                 return lambda: self.on_update_ucell(axis)
+            elif dial_name in ['ori_x', 'ori_y', 'ori_z']:
+                return self.on_update_orientation
             elif dial_name == 'domain_size':
                 return self.on_update_domain_size
             elif dial_name == 'delta_phi':
@@ -871,11 +877,27 @@ class SimView(tk.Frame):
         self.scaled_ucell = (a,b,c,*self.ucell[3:6])
         self._generate_image_data()
 
-    def _randomize_orientation(self, _press=None):
-        x, y, z = randomize_orientation(self.SIM, track_with=self.SIM_noSF)
-        self.params_num.rot_x.set_value(x)
-        self.params_num.rot_y.set_value(y)
-        self.params_num.rot_z.set_value(z)
+    def on_update_orientation(self, new_xyz=None, set_ori=True, _press=None):
+        """update U matrix with changes to orientation quaternion"""
+        if new_xyz:
+            x, y, z = new_xyz
+            self.params_num.ori_x.set_value(x)
+            self.params_num.ori_y.set_value(y)
+            self.params_num.ori_z.set_value(z)
+        else:
+            x = self.params_num.ori_x.get_value()
+            y = self.params_num.ori_y.get_value()
+            z = self.params_num.ori_z.get_value()
+        if set_ori:
+            new_ori = euler_angles.xyz_matrix(x, y, z)
+            #assert sqr(new_ori).r3_rotation_matrix_as_x_y_z_angles(deg=True) == (x, y, z)
+            for sim in (self.SIM, self.SIM_noSF):
+                set_orientation(sim, new_ori)
+            self._generate_image_data(update_ref=True)
+
+    def _randomize_orientation(self, _press=None, reset=False):
+        ori = randomize_orientation(self.SIM, track_with=self.SIM_noSF, reset=reset)
+        self.on_update_orientation(new_xyz=ori.r3_rotation_matrix_as_x_y_z_angles(deg=True), set_ori=False)
         self._generate_image_data(update_ref=True)
 
     def _init_display(self):
@@ -935,6 +957,7 @@ class SimView(tk.Frame):
 
     def _reset_all(self, tkevent=None):
         self.params_cat.reset_all()
+        self._randomize_orientation(reset=True)
         self.on_toggle_diffuse_mode(skip_gen_image_data=True)
         self.on_toggle_rotation_mode(skip_gen_image_data=True)
         self.on_toggle_spectrum_shape(skip_gen_image_data=True)

@@ -92,14 +92,22 @@ def get_pfs(all_pid, all_fast, all_slow):
     pan_fast_slow = flex.size_t(pan_fast_slow)
     return pan_fast_slow
 
-def randomize_orientation(SIM, track_with=None):
-    ori = mersenne_twister.random_double_r3_rotation_matrix()
-    SIM.crystal.dxtbx_crystal.set_U(ori)
-    SIM.D.Umatrix = ori
-    if track_with:
-        track_with.crystal.dxtbx_crystal.set_U(ori)
-        track_with.D.Umatrix = ori
-    return sqr(ori).r3_rotation_matrix_as_x_y_z_angles(deg=True)
+def set_orientation(SIM, ori, ori_repr='xyz'):
+    if ori_repr == 'xyz':
+        SIM.crystal.dxtbx_crystal.set_U(ori)
+        SIM.D.Umatrix = ori
+    else:
+        raise NotImplementedError("can't handle orientation passed in this format yet.")
+
+def randomize_orientation(SIM, track_with=None, reset=False):
+    if reset:
+        ori = (1,0,0,0,1,0,0,0,1)
+    else:
+        ori = mersenne_twister.random_double_r3_rotation_matrix()
+    sims = [SIM, track_with] if track_with else [SIM]
+    for SIM in sims:
+        set_orientation(SIM, ori)
+    return sqr(ori)
 
 def sweep(SIM, phi_start, phistep, osc_deg, *args, oversample=1, **kwargs):
     print("beginning sweep")
