@@ -445,7 +445,7 @@ params_num = ParamsHandler({
     'ori_x':        NumericalParam(min=-180,    max=180,    small_step=1,       big_step=10,    default=0,      formatter='%6.2f',  units_string='°',   label='Orientation (x)',            position=(2,3)),
     'ori_y':        NumericalParam(min=-180,    max=180,    small_step=1,       big_step=10,    default=0,      formatter='%6.2f',  units_string='°',   label='Orientation (y)',            position=(2,4)),
     'ori_z':        NumericalParam(min=-180,    max=180,    small_step=1,       big_step=10,    default=0,      formatter='%6.2f',  units_string='°',   label='Orientation (z)',            position=(2,5)),
-    'diff_gamma':   NumericalParam(min=1,       max=300,    small_step=1,       big_step=10,    default=50,     formatter='%3.0f',  units_string=' Å',  label='Diffuse gamma',              position=(3,1)),
+    'diff_gamma':   NumericalParam(min=1,       max=300,    small_step=10,      big_step=30,    default=50,     formatter='%3.0f',  units_string=' Å',  label='Diffuse gamma',              position=(3,1)),
     'diff_sigma':   NumericalParam(min=0.01,    max=0.7,    small_step=0.01,    big_step=0.05,  default=0.4,    formatter='%4.2f',  units_string=' Å',  label='Diffuse sigma',              position=(3,2)),
     'diff_aniso':   NumericalParam(min=0.01,    max=5,      small_step=0.1,     big_step=1,     default=3,      formatter='%3.1f',  units_string='',    label='Diffuse anisotropy',         position=(3,3)),
     'delta_phi':    NumericalParam(min=0.1,     max=5,      small_step=0.05,    big_step=0.5,   default=0.25,   formatter='%3.1f',  units_string='°',   label='Oscillation width',          position=(4,1)),
