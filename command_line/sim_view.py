@@ -460,11 +460,12 @@ params_cat = ParamsHandler({
     'Fhkl':             RadioParam(default='Off',                       options=['On', 'Off'],                                                label='Use structure factors',    position=(5,0)),
 })
 params_info = ParamsHandler({
-    'status':   InfoParam(info='Initializing...', position=(5,3), columnspan=3),
+    'status':   InfoParam(info='Initializing...', position=(5,3), columnspan=2),
     'ucell':    InfoParam(info='', position=(1,3), columnspan=2),
     'sg':       InfoParam(info='', position=(1,5), columnspan=1),
     'recs':     InfoParam(info='It is recommended to use a monochromatic beam for diffuse scattering, for speed.', position=(3,4), columnspan=3),
     'umatrix':  InfoParam(info='', position=(2,3)),
+    'shortcuts':InfoParam(info='[SHIFT][up/down arrow key] controls numerical parameters', position=(5,5), columnspan=2),
 })
 
 class SimView(tk.Frame):
