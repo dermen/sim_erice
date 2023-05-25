@@ -443,9 +443,6 @@ params_num = ParamsHandler({
     'rot_x':        NumericalParam(min=-180,    max=180,    small_step=0.1,     big_step=1,     default=0,      formatter='%6.2f',  units_string='°',   label='Rotation (x)',               position=(2,0)),
     'rot_y':        NumericalParam(min=-180,    max=180,    small_step=0.1,     big_step=1,     default=0,      formatter='%6.2f',  units_string='°',   label='Rotation (y)',               position=(2,1)),
     'rot_z':        NumericalParam(min=-180,    max=180,    small_step=0.1,     big_step=1,     default=0,      formatter='%6.2f',  units_string='°',   label='Rotation (z)',               position=(2,2)),
-    'ori_x':        NumericalParam(min=-180,    max=180,    small_step=1,       big_step=10,    default=0,      formatter='%6.2f',  units_string='°',   label='Orientation (x)',            position=(2,3)),
-    'ori_y':        NumericalParam(min=-180,    max=180,    small_step=1,       big_step=10,    default=0,      formatter='%6.2f',  units_string='°',   label='Orientation (y)',            position=(2,4)),
-    'ori_z':        NumericalParam(min=-180,    max=180,    small_step=1,       big_step=10,    default=0,      formatter='%6.2f',  units_string='°',   label='Orientation (z)',            position=(2,5)),
     'diff_gamma':   NumericalParam(min=1,       max=300,    small_step=10,      big_step=30,    default=50,     formatter='%3.0f',  units_string=' Å',  label='Diffuse gamma',              position=(3,1)),
     'diff_sigma':   NumericalParam(min=0.01,    max=0.7,    small_step=0.01,    big_step=0.05,  default=0.4,    formatter='%4.2f',  units_string=' Å',  label='Diffuse sigma',              position=(3,2)),
     'diff_aniso':   NumericalParam(min=0.01,    max=5,      small_step=0.1,     big_step=1,     default=3,      formatter='%3.1f',  units_string='',    label='Diffuse anisotropy',         position=(3,3)),
@@ -467,6 +464,7 @@ params_info = ParamsHandler({
     'ucell':    InfoParam(info='', position=(1,3), columnspan=2),
     'sg':       InfoParam(info='', position=(1,5), columnspan=1),
     'recs':     InfoParam(info='It is recommended to use a monochromatic beam for diffuse scattering, for speed.', position=(3,4), columnspan=3),
+    'umatrix':  InfoParam(info='', position=(2,3)),
 })
 
 class SimView(tk.Frame):
@@ -528,6 +526,7 @@ class SimView(tk.Frame):
 
         self._set_option_menu()
         self._update_ucell_label(update_sg=True)
+        self.on_update_orientation(0,0,0)
 
         self._init_fig()
 
@@ -736,8 +735,6 @@ class SimView(tk.Frame):
             elif dial_name in ['ucell_scale_a', 'ucell_scale_b', 'ucell_scale_c']:
                 axis = dial_name[-1]
                 return lambda: self.on_update_ucell(axis)
-            elif dial_name in ['ori_x', 'ori_y', 'ori_z']:
-                return self.on_update_orientation
             elif dial_name == 'domain_size':
                 return self.on_update_domain_size
             elif dial_name == 'delta_phi':
@@ -772,7 +769,7 @@ class SimView(tk.Frame):
 
         # Buttons
         self.new_pulse_button=Button(_options_frame, command=self.on_new_pulse, label="New XFEL pulse", position=(4,6))
-        self.randomize_orientation_button=Button(_options_frame, command=self._randomize_orientation, label="Randomize orientation", position=(2,6))
+        self.randomize_orientation_button=Button(_options_frame, command=self._randomize_orientation, label="Randomize orientation", position=(2,4))
         self.update_ref_image_button=Button(_options_frame, command=self._update_pinned, label="Update pinned image", position=(0,5))
         self.reset_all_button=Button(_options_frame, command=self._reset_all, label="Reset all", position=(0,6))
         #self.pdb_set_trace_button=Button(_options_frame, command=self._set_trace, label="Enter debugger", position=(5,6))
@@ -1049,28 +1046,14 @@ class SimView(tk.Frame):
         self._update_ucell_label()
         self._generate_image_data()
 
-    def on_update_orientation(self, new_xyz=None, set_ori=True, _press=None):
+    def on_update_orientation(self, x, y, z):
         """update U matrix with changes to orientation quaternion"""
         self._update_status("Updating orientation...")
-        if new_xyz:
-            x, y, z = new_xyz
-            self.params_num.ori_x.set_value(x)
-            self.params_num.ori_y.set_value(y)
-            self.params_num.ori_z.set_value(z)
-        else:
-            x = self.params_num.ori_x.get_value()
-            y = self.params_num.ori_y.get_value()
-            z = self.params_num.ori_z.get_value()
-        if set_ori:
-            new_ori = euler_angles.xyz_matrix(x, y, z)
-            #assert sqr(new_ori).r3_rotation_matrix_as_x_y_z_angles(deg=True) == (x, y, z)
-            for sim in (self.SIM, self.SIM_noSF):
-                set_orientation(sim, new_ori)
-            self._generate_image_data(update_ref=True)
+        self.params_info.umatrix.set_value(f"U0 angles: ({x:6.2f}, {y:6.2f}, {z:6.2f})".format())
 
     def _randomize_orientation(self, _press=None, reset=False):
         ori = randomize_orientation(self.SIM, track_with=self.SIM_noSF, reset=reset)
-        self.on_update_orientation(new_xyz=ori.r3_rotation_matrix_as_x_y_z_angles(deg=True), set_ori=False)
+        self.on_update_orientation(*ori.r3_rotation_matrix_as_x_y_z_angles(deg=True))
         self._generate_image_data(update_ref=True)
 
     def _init_display(self):
