@@ -365,6 +365,49 @@ class Button(object):
     def disable(self):
         self.button.configure(state='disabled')
 
+class TextEntry(object):
+    def __init__(self, parent_frame, command, validate_command, label, position):
+        self.command = self.make_command(command)
+        self.validate_command = validate_command
+        self.label = label
+        self.position = position
+        self.variable = tk.StringVar()
+        self.frame = tk.Frame(parent_frame)
+        self.frame.grid(row=self.position[0], column=self.position[1],
+                        sticky='w', padx=6)
+        self.f_label = tk.Label(self.frame, text=self.label)
+        self.f_label.pack(side=tk.LEFT, padx=4)
+        self.f_entry = tk.Entry(self.frame,
+                                textvariable=self.variable,
+                                validatecommand=validate_command)
+        self.f_entry.pack(side=tk.LEFT, padx=4)
+        self.f_entry.bind("<FocusIn>", self.activate)
+        self.f_entry.bind("<FocusOut>", self.deactivate)
+        self.is_active=False
+    def get_value(self):
+        return self.f_entry.get()
+    def set_value(self, new_value):
+        self.f_entry.delete(0, tk.END)
+        self.f_entry.insert(new_value)
+    def make_command(self, command):
+        def update(tkevent=None):
+            text = self.variable.get()
+            try:
+                self.validate_command(text)
+                command(text)
+                self.f_entry.configure(fg='black')
+            except Exception as e:
+                self.f_entry.configure(fg='red')
+                print("Unable to load model:")
+                print(e)
+        return update
+    def activate(self, tkevent=None):
+        self.f_label.config(font='Helvetica 15 bold', fg='blue')
+        self.is_active = True
+    def deactivate(self, tkevent=None):
+        self.f_label.config(font='Helvetica 15', fg='black')
+        self.is_active = False
+
 params_num = ParamsHandler({
     'domain_size':  NumericalParam(min=100,     max=100000, small_step=100,     big_step=1000,  default=1000,   formatter='%4.0f',  units_string=' Å',  label='Domain size (each edge)',    position=(0,0)),
     'mos_ang_deg':  NumericalParam(min=0.01,    max=5,      small_step=0.01,    big_step=0.1,   default=0.1,    formatter='%4.2f',  units_string='°',   label='Mosaic angle',               position=(0,1)),
@@ -465,6 +508,29 @@ class SimView(tk.Frame):
 
         self.bind()
 
+    def on_update_pdb(self, pdbfile=None):
+        symmetry = extract_symmetry_from(pdbfile)
+        sg = str(symmetry.space_group_info())
+        ucell = symmetry.unit_cell()
+        fmat = matrix.sqr(ucell.fractionalization_matrix()).transpose()
+        cryst = Crystal(fmat, sg)
+        self.ori = cryst.get_U()
+        self.SIM = get_SIM(whole_det, beam, cryst, pdbfile, defaultF=0, oversample=self.params_hyper.oversampling, mosaic_domains=self.params_hyper.mosaic_domains)
+        self.SIM.D.laue_group_num = get_laue_group_number(str(symmetry.space_group_info()))
+        self.SIM.D.stencil_size = 1
+        self._make_miller_lookup()  # make a dictionary for faster lookup
+        self.default_amp = np.median(self.SIM.crystal.miller_array.data())
+        self.SIM_noSF = get_SIM(whole_det, beam, cryst, pdbfile, defaultF=self.default_amp, SF=False, oversample=self.params_hyper.oversampling, mosaic_domains=self.params_hyper.mosaic_domains)
+        self.SIM_noSF.D.laue_group_num = get_laue_group_number(str(symmetry.space_group_info()))
+        self.SIM_noSF.D.stencil_size = 1
+        self.xtal = self.SIM.crystal.dxtbx_crystal
+        self.ucell = self.xtal.get_unit_cell().parameters()
+        self.scaled_ucell = self.ucell
+        self.sg = self.xtal.get_space_group()
+        self._check_symmetry()
+        self._enforce_symmetry_on_controls()
+        self._generate_image_data()
+
     def _make_miller_lookup(self):
         ma = self.SIM.crystal.miller_array
         self.amplitude_lookup = {h:val for h,val in zip(ma.indices(), ma.data())}
@@ -493,6 +559,8 @@ class SimView(tk.Frame):
         for numerical_option in self.params_num.all_params:
             spinbox = numerical_option.f_ctrl
             spinbox.config(font=self.default_font, width=5)
+        self.pdb_entry.f_label.config(font=self.default_font)
+        self.pdb_entry.f_entry.config(font=self.default_font)
         self.params_num.activate_next()
 
     def _get_miller_index_at_mouse(self, x,y,rot_p):
@@ -651,6 +719,21 @@ class SimView(tk.Frame):
         self.reset_all_button=Button(_options_frame, command=self._reset_all, label="Reset all", position=(8,2))
         #self.pdb_set_trace_button=Button(_options_frame, command=self._set_trace, label="Enter debugger", position=(9,1))
 
+        # Text Entry
+        def validate(text):
+            pdbid = text.strip()
+            assert len(pdbid) == 4
+            assert pdbid.isalnum()
+        def fetch(pdbid):
+            try:
+                pdbfile = get_pdb(pdbid, "pdb", "rcsb", log=None, format="pdb")
+                assert os.path.exists(pdbfile)
+                self.on_update_pdb(pdbfile=pdbfile)
+            except AssertionError:
+                print("Could not fetch requested PDB")
+                return
+        self.pdb_entry = TextEntry(_options_frame, command=fetch, validate_command=validate, label="PDB ID:", position=(7,2))
+
     def on_toggle_rotation_mode(self, new_mode=None, update_selection=False, skip_gen_image_data=False):
         """enforce monochromatic beam, hide/show rotation specific params"""
         if new_mode and update_selection:
@@ -754,8 +837,12 @@ class SimView(tk.Frame):
         """disable ucell params that cannot be independently adjusted"""
         if not self.b_can_scale:
             self.params_num.ucell_scale_b.disable()
+        else:
+            self.params_num.ucell_scale_b.enable()
         if not self.c_can_scale:
             self.params_num.ucell_scale_c.disable()
+        else:
+            self.params_num.ucell_scale_c.enable()
 
     def on_update_normalization(self, display=True):
         """update normalization"""
@@ -936,7 +1023,10 @@ class SimView(tk.Frame):
         #self.master.bind_all("<U>", self._update_pinned) # update pinned image (in red)
 
     def _register_change(self, tkevent):
-        self.params_num.current_param.command()
+        if self.pdb_entry.is_active:
+            self.pdb_entry.command()
+        else:
+            self.params_num.current_param.command()
 
     def _update_dial(self, new_dial_name):
         self.params_num.set_active_param_by_name(new_dial_name)
