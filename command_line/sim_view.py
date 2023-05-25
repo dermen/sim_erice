@@ -390,13 +390,14 @@ class Button(object):
         self.button.configure(state='disabled')
 
 class TextEntry(object):
-    def __init__(self, parent_frame, command, validate_command, label, position, master):
+    def __init__(self, parent_frame, command, validate_command, label, placeholder_text, position, master):
         self.command = self.make_command(command)
         self.validate_command = validate_command
         self.label = label
         self.position = position
         self.master = master
         self.variable = tk.StringVar()
+        self.variable.set(placeholder_text)
         self.frame = tk.Frame(parent_frame)
         self.frame.grid(row=self.position[0], column=self.position[1],
                         sticky='w', padx=6)
@@ -794,7 +795,7 @@ class SimView(tk.Frame):
             except Exception:
                 self._update_status("Failed to load requested PDB. Triclinic cells not yet supported.")
                 return
-        self.pdb_entry = TextEntry(_options_frame, command=fetch, validate_command=validate, label="PDB ID:", position=(5,1), master=self)
+        self.pdb_entry = TextEntry(_options_frame, command=fetch, validate_command=validate, label="PDB ID:", placeholder_text="4bs7", position=(5,1), master=self)
 
     def on_toggle_rotation_mode(self, new_mode=None, update_selection=False, skip_gen_image_data=False):
         """enforce monochromatic beam, hide/show rotation specific params"""
