@@ -148,7 +148,7 @@ shown. You can press "Show pinned image" to switch between these.
 
 class NumericalParam(object):
     def __init__(self, min, max, small_step, big_step, default,
-                 formatter='%4.2f', units_string='', label='', position=None):
+                 formatter='%4.2f', units_string='', label='', position=None, columnspan=None):
         self.min = min
         self.max = max
         self.sstep = small_step
@@ -158,6 +158,7 @@ class NumericalParam(object):
         self.units = units_string
         self.label = label
         self.position = position
+        self.columnspan = columnspan
         self.is_enabled = True
         self.is_active = False
     def register_parent_frame(self, parent_frame):
@@ -165,6 +166,7 @@ class NumericalParam(object):
     def generate_dial(self, extra_logic=lambda: None):
         self.frame = tk.Frame(self.parent_frame)
         self.frame.grid(row=self.position[0], column=self.position[1],
+                        columnspan=self.columnspan,
                         sticky='w', padx=6)
         self.f_label = tk.Label(self.frame, text=self.label)
         self.f_label.pack(side=tk.LEFT, padx=4)
@@ -224,15 +226,17 @@ class NumericalParam(object):
         self.is_active = False
 
 class CategoricalParam(NumericalParam):
-    def __init__(self, default, options, label, position=None):
+    def __init__(self, default, options, label, position=None, columnspan=None):
         self.default = default
         self.options = options
         self.label = label
         self.position = position
+        self.columnspan = columnspan
         self.is_enabled = True
     def generate_menu(self, extra_logic=lambda: None):
         self.frame = tk.Frame(self.parent_frame)
         self.frame.grid(row=self.position[0], column=self.position[1],
+                        columnspan=self.columnspan,
                         sticky='w', padx=6)
         self.f_label = tk.Label(self.frame, text=self.label)
         self.f_label.pack(side=tk.LEFT, padx=4)
@@ -257,6 +261,7 @@ class RadioParam(CategoricalParam):
     def generate_menu(self, extra_logic=lambda: None):
         self.frame = tk.Frame(self.parent_frame)
         self.frame.grid(row=self.position[0], column=self.position[1],
+                        columnspan=self.columnspan,
                         sticky='w', padx=6)
         self.f_label = tk.Label(self.frame, text=self.label)
         self.f_label.pack(side=tk.LEFT, padx=4)
@@ -271,7 +276,7 @@ class RadioParam(CategoricalParam):
                                    variable=self.intvar,
                                    value=i,
                                    command=self.command)
-            radio.pack(anchor=tk.W)
+            radio.pack(side=tk.LEFT, padx=4)
             self.option_radios.append(radio)
     def get_value(self):
         return self.options[self.intvar.get()]
@@ -300,7 +305,7 @@ class InfoParam(object):
         self.variable.set(self.info)
         self.f_info = tk.Message(self.parent_frame,
                                  textvariable=self.variable,
-                                 width=500)
+                                 width=700)
         self.f_info.grid(row=self.position[0], column=self.position[1],
                         columnspan=self.columnspan,
                         sticky='w', padx=6)
@@ -440,26 +445,27 @@ params_num = ParamsHandler({
     'ori_x':        NumericalParam(min=-180,    max=180,    small_step=1,       big_step=10,    default=0,      formatter='%6.2f',  units_string='°',   label='Orientation (x)',            position=(2,3)),
     'ori_y':        NumericalParam(min=-180,    max=180,    small_step=1,       big_step=10,    default=0,      formatter='%6.2f',  units_string='°',   label='Orientation (y)',            position=(2,4)),
     'ori_z':        NumericalParam(min=-180,    max=180,    small_step=1,       big_step=10,    default=0,      formatter='%6.2f',  units_string='°',   label='Orientation (z)',            position=(2,5)),
-    'diff_gamma':   NumericalParam(min=1,       max=300,    small_step=1,       big_step=10,    default=50,     formatter='%3.0f',  units_string=' Å',  label='Diffuse gamma',              position=(3,0)),
-    'diff_sigma':   NumericalParam(min=0.01,    max=0.7,    small_step=0.01,    big_step=0.05,  default=0.4,    formatter='%4.2f',  units_string=' Å',  label='Diffuse sigma',              position=(3,1)),
-    'diff_aniso':   NumericalParam(min=0.01,    max=5,     small_step=0.1,     big_step=1,     default=3,      formatter='%3.1f',  units_string='',    label='Diffuse anisotropy',         position=(3,2)),
-    'delta_phi':    NumericalParam(min=0.1,     max=5,      small_step=0.05,    big_step=0.5,   default=0.25,   formatter='%3.1f',  units_string='°',   label='Oscillation width',          position=(4,0)),
-    'image':        NumericalParam(min=1,       max=100,    small_step=1,       big_step=10,    default=1,      formatter='%3.0f',  units_string='',    label='Image no.',                  position=(4,1)),
-    'brightness':   NumericalParam(min=0,       max=2,      small_step=0.01,    big_step=0.1,   default=0.5,    formatter='%4.2f',  units_string='',    label='Brightness',                 position=(4,2)),
-    'energy':       NumericalParam(min=6500,    max=12000,  small_step=100,     big_step=1000,  default=9500,   formatter='%5.0f',  units_string=' eV', label='Beam energy',                position=(5,0)),
-    'bandwidth':    NumericalParam(min=0.01,    max=2,      small_step=0.1,     big_step=1,     default=0.3,    formatter='%3.1f',  units_string='%',   label='Bandwidth',                  position=(5,1)),
+    'diff_gamma':   NumericalParam(min=1,       max=300,    small_step=1,       big_step=10,    default=50,     formatter='%3.0f',  units_string=' Å',  label='Diffuse gamma',              position=(3,1)),
+    'diff_sigma':   NumericalParam(min=0.01,    max=0.7,    small_step=0.01,    big_step=0.05,  default=0.4,    formatter='%4.2f',  units_string=' Å',  label='Diffuse sigma',              position=(3,2)),
+    'diff_aniso':   NumericalParam(min=0.01,    max=5,      small_step=0.1,     big_step=1,     default=3,      formatter='%3.1f',  units_string='',    label='Diffuse anisotropy',         position=(3,3)),
+    'delta_phi':    NumericalParam(min=0.1,     max=5,      small_step=0.05,    big_step=0.5,   default=0.25,   formatter='%3.1f',  units_string='°',   label='Oscillation width',          position=(4,1)),
+    'image':        NumericalParam(min=1,       max=100,    small_step=1,       big_step=10,    default=1,      formatter='%3.0f',  units_string='',    label='Image no.',                  position=(4,2)),
+    'brightness':   NumericalParam(min=0,       max=2,      small_step=0.01,    big_step=0.1,   default=0.5,    formatter='%4.2f',  units_string='',    label='Brightness',                 position=(0,2)),
+    'energy':       NumericalParam(min=6500,    max=12000,  small_step=100,     big_step=1000,  default=9500,   formatter='%5.0f',  units_string=' eV', label='Beam energy',                position=(4,3)),
+    'bandwidth':    NumericalParam(min=0.01,    max=2,      small_step=0.1,     big_step=1,     default=0.3,    formatter='%3.1f',  units_string='%',   label='Bandwidth',                  position=(4,4)),
 }, track_current_param=True)
 params_cat = ParamsHandler({
-    'spectrum_shape':   CategoricalParam(default='SASE (XFEL)',         options=['Monochromatic', 'Gaussian', 'SASE (XFEL)'],                 label='Spectrum shape',           position=(6,0)),
-    'rotation_mode':    CategoricalParam(default='Stills',              options=['Stills', 'Rotation'],                                       label='Experiment mode',          position=(6,1)),
-    'diffuse_mode':     RadioParam(default='Off',                       options=['Off', 'On'],                                                label='Diffuse scattering',       position=(6,2)),
-    'pinned_mode':      RadioParam(default='Simulation only',           options=['Simulation only', 'Overlay with pinned'],                   label='Display mode',             position=(7,0)),
-    'Fhkl':             RadioParam(default='Off',                       options=['On', 'Off'],                                                label='Use structure factors',    position=(7,1)),
+    'spectrum_shape':   CategoricalParam(default='SASE (XFEL)',         options=['Monochromatic', 'Gaussian', 'SASE (XFEL)'],                 label='Spectrum',                 position=(4,5)),
+    'rotation_mode':    CategoricalParam(default='Stills',              options=['Stills', 'Rotation'],                                       label='Experiment mode',          position=(4,0)),
+    'diffuse_mode':     RadioParam(default='Off',                       options=['Off', 'On'],                                                label='Diffuse scattering',       position=(3,0)),
+    'pinned_mode':      RadioParam(default='Simulation only',           options=['Simulation only', 'Overlay with pinned'],                   label='Display mode',             position=(0,3), columnspan=2),
+    'Fhkl':             RadioParam(default='Off',                       options=['On', 'Off'],                                                label='Use structure factors',    position=(5,0)),
 })
 params_info = ParamsHandler({
-    'status':   InfoParam(info='Initializing...', position=(0,3), columnspan=3),
-    'ucell':    InfoParam(info='', position=(1,3), columnspan=3),
+    'status':   InfoParam(info='Initializing...', position=(5,3), columnspan=3),
+    'ucell':    InfoParam(info='', position=(1,3), columnspan=2),
     'sg':       InfoParam(info='', position=(1,5), columnspan=1),
+    'recs':     InfoParam(info='It is recommended to use a monochromatic beam for diffuse scattering, for speed.', position=(3,4), columnspan=3),
 })
 
 class SimView(tk.Frame):
@@ -763,11 +769,11 @@ class SimView(tk.Frame):
             self.params_info.get_param(info_name).generate_info()
 
         # Buttons
-        self.new_pulse_button=Button(_options_frame, command=self.on_new_pulse, label="New XFEL pulse", position=(5,2))
-        self.randomize_orientation_button=Button(_options_frame, command=self._randomize_orientation, label="Randomize orientation", position=(8,0))
-        self.update_ref_image_button=Button(_options_frame, command=self._update_pinned, label="Update pinned image", position=(8,1))
-        self.reset_all_button=Button(_options_frame, command=self._reset_all, label="Reset all", position=(8,2))
-        #self.pdb_set_trace_button=Button(_options_frame, command=self._set_trace, label="Enter debugger", position=(9,1))
+        self.new_pulse_button=Button(_options_frame, command=self.on_new_pulse, label="New XFEL pulse", position=(4,6))
+        self.randomize_orientation_button=Button(_options_frame, command=self._randomize_orientation, label="Randomize orientation", position=(2,6))
+        self.update_ref_image_button=Button(_options_frame, command=self._update_pinned, label="Update pinned image", position=(0,5))
+        self.reset_all_button=Button(_options_frame, command=self._reset_all, label="Reset all", position=(0,6))
+        #self.pdb_set_trace_button=Button(_options_frame, command=self._set_trace, label="Enter debugger", position=(5,6))
 
         # Text Entry
         def validate(text):
@@ -787,7 +793,7 @@ class SimView(tk.Frame):
             except Exception:
                 self._update_status("Failed to load requested PDB. Triclinic cells not yet supported.")
                 return
-        self.pdb_entry = TextEntry(_options_frame, command=fetch, validate_command=validate, label="PDB ID:", position=(7,2), master=self)
+        self.pdb_entry = TextEntry(_options_frame, command=fetch, validate_command=validate, label="PDB ID:", position=(5,1), master=self)
 
     def on_toggle_rotation_mode(self, new_mode=None, update_selection=False, skip_gen_image_data=False):
         """enforce monochromatic beam, hide/show rotation specific params"""
