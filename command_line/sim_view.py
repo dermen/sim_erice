@@ -288,6 +288,24 @@ class RadioParam(CategoricalParam):
             part.config(state='disabled')
         self.is_enabled = False
 
+class InfoParam(object):
+    def __init__(self, info='', position=None, columnspan=None):
+        self.info = info
+        self.position = position
+        self.columnspan = columnspan
+    def register_parent_frame(self, parent_frame):
+        self.parent_frame = parent_frame
+    def generate_info(self):
+        self.variable = tk.StringVar()
+        self.variable.set(self.info)
+        self.f_info = tk.Message(self.parent_frame,
+                                 textvariable=self.variable,
+                                 width=500)
+        self.f_info.grid(row=self.position[0], column=self.position[1],
+                        columnspan=self.columnspan,
+                        sticky='w', padx=6)
+    def set_value(self, new_info):
+        self.variable.set(new_info)
 
 class ParamsHandler(object):
     def __init__(self, dict_, track_current_param=False):
@@ -436,15 +454,20 @@ params_cat = ParamsHandler({
     'pinned_mode':      RadioParam(default='Simulation only',           options=['Simulation only', 'Overlay with pinned'],                   label='Display mode',             position=(7,0)),
     'Fhkl':             RadioParam(default='Off',                       options=['On', 'Off'],                                                label='Use structure factors',    position=(7,1)),
 })
+params_info = ParamsHandler({
+    'ucell':    InfoParam(info='', position=(1,3), columnspan=3),
+    'sg':       InfoParam(info='', position=(1,5), columnspan=1),
+})
 
 class SimView(tk.Frame):
 
-    def __init__(self, master, params_num, params_cat, params_hyper, pdbfile, *args, **kwargs):
+    def __init__(self, master, params_num, params_cat, params_info, params_hyper, pdbfile, *args, **kwargs):
         tk.Frame.__init__(self, *args, **kwargs)
 
         self.master = master
         self.params_num = params_num
         self.params_cat = params_cat
+        self.params_info = params_info
         self.params_hyper = params_hyper
 
         symmetry = extract_symmetry_from(pdbfile)
@@ -494,6 +517,7 @@ class SimView(tk.Frame):
         self.start_ori = self.SIM.crystal.dxtbx_crystal.get_U()
 
         self._set_option_menu()
+        self._update_ucell_label(update_sg=True)
 
         self._init_fig()
 
@@ -526,10 +550,13 @@ class SimView(tk.Frame):
         self.xtal = self.SIM.crystal.dxtbx_crystal
         self.ucell = self.xtal.get_unit_cell().parameters()
         self.scaled_ucell = self.ucell
+        for axis in ('a','b','c'):
+            self.params_num.get_param('ucell_scale_%s' % axis).reset(callbacks=False)
         self.sg = self.xtal.get_space_group()
         self._check_symmetry()
         self._enforce_symmetry_on_controls()
         self._generate_image_data()
+        self._update_ucell_label(update_sg=True)
 
     def _make_miller_lookup(self):
         ma = self.SIM.crystal.miller_array
@@ -561,6 +588,8 @@ class SimView(tk.Frame):
             spinbox.config(font=self.default_font, width=5)
         self.pdb_entry.f_label.config(font=self.default_font)
         self.pdb_entry.f_entry.config(font=self.default_font)
+        for info_param in self.params_info.all_params:
+            info_param.f_info.config(font=self.default_font)
         self.params_num.activate_next()
 
     def _get_miller_index_at_mouse(self, x,y,rot_p):
@@ -671,6 +700,8 @@ class SimView(tk.Frame):
         self.params_num.all_register_handler()
         self.params_cat.all_register_parent_frame(_options_frame)
         self.params_cat.all_register_handler()
+        self.params_info.all_register_parent_frame(_options_frame)
+        self.params_info.all_register_handler()
 
         def get_extra_dial_logic(dial_name):
             """set additional responses on updating specific numerical values"""
@@ -711,6 +742,9 @@ class SimView(tk.Frame):
 
         for menu_name in self.params_cat.all_param_names:
             self.params_cat.get_param(menu_name).generate_menu(extra_logic=get_extra_menu_logic(menu_name))
+
+        for info_name in self.params_info.all_param_names:
+            self.params_info.get_param(info_name).generate_info()
 
         # Buttons
         self.new_pulse_button=Button(_options_frame, command=self.on_new_pulse, label="New XFEL pulse", position=(5,2))
@@ -844,6 +878,14 @@ class SimView(tk.Frame):
         else:
             self.params_num.ucell_scale_c.enable()
 
+    def _update_ucell_label(self, update_sg=False):
+        """label current model unit cell and space group"""
+        ucell_str = "Unit cell: (%6.2f, %6.2f, %6.2f, %6.2f, %6.2f, %6.2f)" % self.scaled_ucell
+        self.params_info.ucell.set_value(ucell_str)
+        if update_sg:
+            sg_str = "Space group: %s" % self.sg.info().symbol_and_number()
+            self.params_info.sg.set_value(sg_str)
+
     def on_update_normalization(self, display=True):
         """update normalization"""
         exponent = self.params_num.brightness.get_value()*2-2
@@ -962,6 +1004,7 @@ class SimView(tk.Frame):
             b = self.scaled_ucell[1]
             c = scale * self.ucell[2]
         self.scaled_ucell = (a,b,c,*self.ucell[3:6])
+        self._update_ucell_label()
         self._generate_image_data()
 
     def on_update_orientation(self, new_xyz=None, set_ori=True, _press=None):
@@ -1052,6 +1095,7 @@ class SimView(tk.Frame):
         self.on_toggle_rotation_mode(skip_gen_image_data=True)
         self.on_toggle_spectrum_shape(skip_gen_image_data=True)
         self.params_num.reset_all()
+        self._update_ucell_label()
         self._generate_image_data()
 
 if __name__ == '__main__':
@@ -1100,7 +1144,7 @@ if __name__ == '__main__':
         
         root.geometry('1920x1140')
         
-        frame = SimView(root, params_num, params_cat, params_hyper, pdbfile)
+        frame = SimView(root, params_num, params_cat, params_info, params_hyper, pdbfile)
         
         frame.pack( side=tk.TOP, expand=tk.NO)
         root.mainloop()
