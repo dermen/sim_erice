@@ -213,14 +213,14 @@ class NumericalParam(object):
     def activate(self, tkevent=None):
         if hasattr(self, 'is_active') and not self.is_active:
             for part in (self.f_label, self.f_units):
-                part.config(font='Helvetica 15 bold', fg='blue')
+                part.config(font='Helvetica 10 bold', fg='blue')
             self.is_active = True
             self.f_ctrl.focus_set()
             if hasattr(self, 'handler') and not self.handler.current_param is self:
                 self.handler.set_active_param_by_object(self)
     def deactivate(self, tkevent=None):
         for part in (self.f_label, self.f_units):
-            part.config(font='Helvetica 15', fg='black')
+            part.config(font='Helvetica 10', fg='black')
         self.is_active = False
 
 class CategoricalParam(NumericalParam):
@@ -402,10 +402,10 @@ class TextEntry(object):
                 print(e)
         return update
     def activate(self, tkevent=None):
-        self.f_label.config(font='Helvetica 15 bold', fg='blue')
+        self.f_label.config(font='Helvetica 10 bold', fg='blue')
         self.is_active = True
     def deactivate(self, tkevent=None):
-        self.f_label.config(font='Helvetica 15', fg='black')
+        self.f_label.config(font='Helvetica 10', fg='black')
         self.is_active = False
 
 params_num = ParamsHandler({
@@ -550,7 +550,7 @@ class SimView(tk.Frame):
     def _set_visual_defaults(self):
         """set defaults for font, size, layout, etc."""
         self.default_font = tk.font.nametofont("TkDefaultFont")
-        self.default_font.config(family="Helvetica", size=15)
+        self.default_font.config(family="Helvetica", size=10)
         for categorical_option in self.params_cat.all_params:
             if hasattr(categorical_option, 'f_menu'):
                 menu = categorical_option.f_menu
