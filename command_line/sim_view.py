@@ -450,7 +450,7 @@ params_num = ParamsHandler({
     'diff_aniso':   NumericalParam(min=0.01,    max=5,      small_step=0.1,     big_step=1,     default=3,      formatter='%3.1f',  units_string='',    label='Diffuse anisotropy',         position=(3,3)),
     'delta_phi':    NumericalParam(min=0.1,     max=5,      small_step=0.05,    big_step=0.5,   default=0.25,   formatter='%3.1f',  units_string='°',   label='Oscillation width',          position=(4,1)),
     'image':        NumericalParam(min=1,       max=100,    small_step=1,       big_step=10,    default=1,      formatter='%3.0f',  units_string='',    label='Image no.',                  position=(4,2)),
-    'brightness':   NumericalParam(min=0,       max=2,      small_step=0.01,    big_step=0.1,   default=0.5,    formatter='%4.2f',  units_string='',    label='Brightness',                 position=(0,2)),
+    'brightness':   NumericalParam(min=0,       max=2,      small_step=0.01,    big_step=0.1,   default=0.7,    formatter='%4.2f',  units_string='',    label='Brightness',                 position=(0,2)),
     'energy':       NumericalParam(min=6500,    max=12000,  small_step=100,     big_step=1000,  default=9500,   formatter='%5.0f',  units_string=' eV', label='Beam energy',                position=(4,3)),
     'bandwidth':    NumericalParam(min=0.01,    max=2,      small_step=0.1,     big_step=1,     default=0.3,    formatter='%3.1f',  units_string='%',   label='Bandwidth',                  position=(4,4)),
 }, track_current_param=True)
