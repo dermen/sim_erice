@@ -305,7 +305,8 @@ class InfoParam(object):
                         columnspan=self.columnspan,
                         sticky='w', padx=6)
     def set_value(self, new_info):
-        self.variable.set(new_info)
+        if hasattr(self, "variable"):
+            self.variable.set(new_info)
 
 class ParamsHandler(object):
     def __init__(self, dict_, track_current_param=False):
@@ -384,11 +385,12 @@ class Button(object):
         self.button.configure(state='disabled')
 
 class TextEntry(object):
-    def __init__(self, parent_frame, command, validate_command, label, position):
+    def __init__(self, parent_frame, command, validate_command, label, position, master):
         self.command = self.make_command(command)
         self.validate_command = validate_command
         self.label = label
         self.position = position
+        self.master = master
         self.variable = tk.StringVar()
         self.frame = tk.Frame(parent_frame)
         self.frame.grid(row=self.position[0], column=self.position[1],
@@ -416,8 +418,8 @@ class TextEntry(object):
                 self.f_entry.configure(fg='black')
             except Exception as e:
                 self.f_entry.configure(fg='red')
-                print("Unable to load model:")
-                print(e)
+                self.master._update_status("Failed to load model.")
+                raise(e)
         return update
     def activate(self, tkevent=None):
         self.f_label.config(font='Helvetica 10 bold', fg='blue')
@@ -455,6 +457,7 @@ params_cat = ParamsHandler({
     'Fhkl':             RadioParam(default='Off',                       options=['On', 'Off'],                                                label='Use structure factors',    position=(7,1)),
 })
 params_info = ParamsHandler({
+    'status':   InfoParam(info='Initializing...', position=(0,3), columnspan=3),
     'ucell':    InfoParam(info='', position=(1,3), columnspan=3),
     'sg':       InfoParam(info='', position=(1,5), columnspan=1),
 })
@@ -529,12 +532,21 @@ class SimView(tk.Frame):
         self.on_toggle_rotation_mode(skip_gen_image_data=True)
         self.on_toggle_spectrum_shape(skip_gen_image_data=True)
         self._enforce_symmetry_on_controls()
+        self._update_status("Ready.")
 
         self.bind()
 
+    def _update_status(self, new_status):
+        self.params_info.get_param("status").set_value(
+            "STATUS: " + new_status)
+        root.update()
+
     def on_update_pdb(self, pdbfile=None):
+        self._update_status("Loading new PDB model...")
         symmetry = extract_symmetry_from(pdbfile)
         sg = str(symmetry.space_group_info())
+        if sg == 'P 1':
+            raise Exception("Triclinic cells not yet supported.")
         ucell = symmetry.unit_cell()
         fmat = matrix.sqr(ucell.fractionalization_matrix()).transpose()
         cryst = Crystal(fmat, sg)
@@ -559,11 +571,13 @@ class SimView(tk.Frame):
         self._update_ucell_label(update_sg=True)
 
     def _make_miller_lookup(self):
+        self._update_status("Generating Miller lookup...")
         ma = self.SIM.crystal.miller_array
         self.amplitude_lookup = {h:val for h,val in zip(ma.indices(), ma.data())}
 
     def _pack_canvas(self):
         """ embed the mpl figure"""
+        self._update_status("Preparing figure canvas...")
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.master) 
         self.canvas.draw()
         self.canvas.get_tk_widget().pack(side=tk.TOP,fill=tk.BOTH,
@@ -576,6 +590,7 @@ class SimView(tk.Frame):
 
     def _set_visual_defaults(self):
         """set defaults for font, size, layout, etc."""
+        self._update_status("Setting visual defaults...")
         self.default_font = tk.font.nametofont("TkDefaultFont")
         self.default_font.config(family="Helvetica", size=10)
         for categorical_option in self.params_cat.all_params:
@@ -680,6 +695,7 @@ class SimView(tk.Frame):
         self.ax.format_coord = label_mouse_coords
 
     def _init_fig(self):
+        self._update_status("Initializing the matplotlib figure...")
         """ initialize the mpl fig"""
         self.fig = plt.figure(1)
         self.ax = plt.Axes(self.fig, [0,0,1,1])
@@ -762,14 +778,20 @@ class SimView(tk.Frame):
             try:
                 pdbfile = get_pdb(pdbid, "pdb", "rcsb", log=None, format="pdb")
                 assert os.path.exists(pdbfile)
-                self.on_update_pdb(pdbfile=pdbfile)
             except AssertionError:
                 print("Could not fetch requested PDB")
+                self._update_status("Failed to fetch requested PDB.")
                 return
-        self.pdb_entry = TextEntry(_options_frame, command=fetch, validate_command=validate, label="PDB ID:", position=(7,2))
+            try:
+                self.on_update_pdb(pdbfile=pdbfile)
+            except Exception:
+                self._update_status("Failed to load requested PDB. Triclinic cells not yet supported.")
+                return
+        self.pdb_entry = TextEntry(_options_frame, command=fetch, validate_command=validate, label="PDB ID:", position=(7,2), master=self)
 
     def on_toggle_rotation_mode(self, new_mode=None, update_selection=False, skip_gen_image_data=False):
         """enforce monochromatic beam, hide/show rotation specific params"""
+        self._update_status("Changing experiment type...")
         if new_mode and update_selection:
             self.params_cat.rotation_mode.set_value(new_mode)
         if self.params_cat.rotation_mode.get_value() == 'Rotation':
@@ -786,6 +808,7 @@ class SimView(tk.Frame):
 
     def on_toggle_spectrum_shape(self, new_shape=None, update_selection=False, skip_gen_image_data=False):
         """set visibility of other controls dependent on spectrum shape"""
+        self._update_status("Changing spectrum type...")
         if new_shape and update_selection:
             self.params_cat.spectrum_shape.set_value(new_shape)
         shape = self.params_cat.spectrum_shape.get_value()
@@ -802,6 +825,7 @@ class SimView(tk.Frame):
 
     def on_toggle_diffuse_mode(self, skip_gen_image_data=False):
         """set visibility of diffuse mode params"""
+        self._update_status("Toggling diffuse scattering...")
         if self.params_cat.diffuse_mode.get_value() == 'On':
             for param in [self.params_num.diff_gamma, self.params_num.diff_sigma, self.params_num.diff_aniso]:
                 param.enable()
@@ -813,6 +837,7 @@ class SimView(tk.Frame):
             self._generate_image_data()
 
     def on_update_spectrum(self, new_pulse=False, init=False, skip_gen_image_data=False):
+        self._update_status("Updating spectrum...")
         shape = self.params_cat.spectrum_shape.get_value()
         if shape == "Gaussian":
             bw = 0.01 * self.params_num.bandwidth.get_value() * self.params_num.energy.get_value() # bandwidth in eV
@@ -909,6 +934,7 @@ class SimView(tk.Frame):
 
     def _normalize_all_image_data(self, display=True):
         """update intensity scaling for the stored pixel data"""
+        self._update_status("Normalizing image data...")
         t = time.time()
         self.img_overlay[:,:,0] = self._normalize_image_data(self.img_ref[0]) # red channel
         self.img_overlay[:,:,1] = self._normalize_image_data(self.img_sim[0] + self.img_ref[0]) # green channel (grayscale if identical)
@@ -923,11 +949,13 @@ class SimView(tk.Frame):
         self.img_single_channel[:,:,2][img_overloads == 1] = 0
         t = time.time()-t
         print("Time taken to normalize image data: %8.5f seconds"% t)
+        self._update_status("Ready.")
         if display:
             self._display()
 
     def _generate_image_data(self, update_ref=False, display=True):
         """generate image to match requested params"""
+        self._update_status("Generating image data...")
         t = time.time()
         SIM = self.SIM if self.params_cat.Fhkl.get_value() == 'On' else self.SIM_noSF
         diffuse_gamma = self.diffuse_gamma if self.params_cat.diffuse_mode.get_value() == 'On' else None
@@ -1009,6 +1037,7 @@ class SimView(tk.Frame):
 
     def on_update_orientation(self, new_xyz=None, set_ori=True, _press=None):
         """update U matrix with changes to orientation quaternion"""
+        self._update_status("Updating orientation...")
         if new_xyz:
             x, y, z = new_xyz
             self.params_num.ori_x.set_value(x)
@@ -1047,6 +1076,7 @@ class SimView(tk.Frame):
         self.aximg.set_data(imgdata)
         self.canvas.draw()
         self._annotate()
+        self._update_status("Ready.")
 
     def bind(self):
         """key bindings"""
@@ -1086,6 +1116,7 @@ class SimView(tk.Frame):
         # adjust by small_step less than big_step because small_step already registered
 
     def _reset(self, tkevent=None):
+        self._update_status("Resetting parameter(s)...")
         self.params_num.current_param.reset()
 
     def _reset_all(self, tkevent=None):
