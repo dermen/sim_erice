@@ -447,7 +447,7 @@ params_num = ParamsHandler({
     'diff_sigma':   NumericalParam(min=0.01,    max=0.7,    small_step=0.01,    big_step=0.05,  default=0.4,    formatter='%4.2f',  units_string=' Å',  label='Diffuse sigma',              position=(3,2)),
     'diff_aniso':   NumericalParam(min=0.01,    max=5,      small_step=0.1,     big_step=1,     default=3,      formatter='%3.1f',  units_string='',    label='Diffuse anisotropy',         position=(3,3)),
     'delta_phi':    NumericalParam(min=0.1,     max=5,      small_step=0.05,    big_step=0.5,   default=0.25,   formatter='%3.1f',  units_string='°',   label='Oscillation width',          position=(4,1)),
-    'image':        NumericalParam(min=1,       max=100,    small_step=1,       big_step=10,    default=1,      formatter='%3.0f',  units_string='',    label='Image no.',                  position=(4,2)),
+    'image':        NumericalParam(min=1,       max=100000, small_step=1,       big_step=10,    default=1,      formatter='%3.0f',  units_string='',    label='Image no.',                  position=(4,2)),
     'brightness':   NumericalParam(min=0,       max=2,      small_step=0.01,    big_step=0.1,   default=0.7,    formatter='%4.2f',  units_string='',    label='Brightness',                 position=(0,2)),
     'energy':       NumericalParam(min=6500,    max=12000,  small_step=100,     big_step=1000,  default=9500,   formatter='%5.0f',  units_string=' eV', label='Beam energy',                position=(4,3)),
     'bandwidth':    NumericalParam(min=0.01,    max=2,      small_step=0.1,     big_step=1,     default=0.3,    formatter='%3.1f',  units_string='%',   label='Bandwidth',                  position=(4,4)),
@@ -737,8 +737,6 @@ class SimView(tk.Frame):
                 return lambda: self.on_update_ucell(axis)
             elif dial_name == 'domain_size':
                 return self.on_update_domain_size
-            elif dial_name == 'delta_phi':
-                return self.on_update_delta_phi
             elif dial_name == 'brightness':
                 return self.on_update_normalization
             else:
@@ -973,11 +971,8 @@ class SimView(tk.Frame):
         diffuse_sigma = self.diffuse_sigma if self.params_cat.diffuse_mode.get_value() == 'On' else None
         if self.params_cat.rotation_mode.get_value() == 'Rotation':
             delta_phi = self.params_num.delta_phi.get_value()
-            if self.params_hyper.rotation.phi_step_size: # override n_steps if provided
-                phi_step = self.params_hyper.rotation.phi_step_size
-            else:
-                phi_n_steps = self.params_hyper.rotation.oscillation_n_steps
-                phi_step = delta_phi/phi_n_steps
+            phi_n_steps = self.params_hyper.oscillation_n_steps
+            phi_step = delta_phi/phi_n_steps
             pix = sweep(SIM,
                 delta_phi * (self.params_num.image.get_value() - 1), # phi_start
                 phi_step, # phi step for simtbx
@@ -1019,13 +1014,6 @@ class SimView(tk.Frame):
             self.ncells.append(max(int(round(side_length/side)), 1))
         if not skip_gen_image_data:
             self._generate_image_data()
-
-    def on_update_delta_phi(self):
-        """in case of specified rotation range in degrees, update number of images in the sweep to match"""
-        if self.params_hyper.rotation.sweep_deg:
-            delta_phi = self.params_num.delta_phi.get_value()
-            imgs_in_sweep = self.params_hyper.rotation.sweep_deg // delta_phi
-            self.params_num.image.max = imgs_in_sweep
 
     def on_update_ucell(self, axis):
         """scale one or more lengths depending on symmetry"""
@@ -1157,7 +1145,6 @@ if __name__ == '__main__':
         )
     params_hyper, options = parser.parse_args(args=sys.argv[1:],
                                               show_diff_phil=True)
-    params_num.image.max = params_hyper.rotation.sweep_n_imgs
     params_cat.spectrum_shape.default = params_hyper.spectrum_shape
 
     from simtbx.diffBragg.device import DeviceWrapper
