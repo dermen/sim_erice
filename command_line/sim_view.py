@@ -686,12 +686,12 @@ class SimView(tk.Frame):
 
                 hkl_f_str = ", ".join(map(lambda x: "%.2f"%x, hkl_f))
                 hkl_i_str = ", ".join(map(lambda x: "%d"%x, hkl_i))
-                H_str = "hf,kf,lf=({Hf}) |Hdist|={dH:.3f} |F|={F:.6f} Value={Value:.6f}\n".format(
+                H_str = "hf,kf,lf=({Hf}) |Hdist|={dH:.3f} |F|={F:.6f} Value={Value:.6f} ".format(
                         Hf=hkl_f_str, Hi=hkl_i_str, F=amp, dH=hkl_dist, Value=self.img_sim[0,int(y),int(x)])
                 if self.params_cat.diffuse_mode.get_value() == 'On':
                     gamma_portion = self._get_diffuse_gamma_portion(hkl_f,hkl_i,rot_p)
-                    H_str = H_str.rstrip() + " G(q)={diff_fac:.6f}\n".format(diff_fac=gamma_portion)
-            return H_str+"({x}, {y}): {resol:.2f} Å".format(resol=resol, x=int(x), y=int(y))
+                    H_str += "G(q)={diff_fac:.6f} ".format(diff_fac=gamma_portion)
+            return H_str+"Position ({x}, {y}): {resol:.2f} Å".format(resol=resol, x=int(x), y=int(y))
         self.ax.format_coord = label_mouse_coords
 
     def _init_fig(self):
