@@ -856,10 +856,10 @@ class SimView(tk.Frame):
                                 for energy in range(-50,51)]
             self.spectrum_Ang = [(12398./energy, flux) for (energy, flux) in self.spectrum_eV]
         elif shape == "SASE (XFEL)":
-            if init:
+            if init or not hasattr(self, "SASE_iter"):
                 self.SASE_iter = self.SASE_sim.generate_recast_renormalized_images(
                     energy=self.params_num.energy.get_value(), total_flux=1e12)
-            if new_pulse or init:
+            if new_pulse or init or not hasattr(self, "pulse_energies_Ang"):
                 self.pulse_energies_Ang, self.flux_list, self.avg_wavelength_Ang = next(self.SASE_iter)
             self.spectrum_Ang = list(zip(self.pulse_energies_Ang, self.flux_list))
         elif shape == "Monochromatic":
