@@ -422,12 +422,6 @@ class SimView(tk.Frame):
         self.params_info = params_info
         self.params_hyper = params_hyper
 
-        symmetry = extract_symmetry_from(pdbfile)
-        sg = str(symmetry.space_group_info())
-        ucell = symmetry.unit_cell()
-        fmat = matrix.sqr(ucell.fractionalization_matrix()).transpose()
-        cryst = Crystal(fmat, sg)
-        self.ori = cryst.get_U()
         self.panel = whole_det[0]
         self.s0 = beam.get_unit_s0()
         fast = self.panel.get_fast_axis()
@@ -436,27 +430,8 @@ class SimView(tk.Frame):
         self.panel.set_frame(fast, slow, offset_orig)
         self.beam_center = self.panel.get_beam_centre_px(self.s0)
 
-        if self.params_cat.diffuse_mode == 'On':
-            mosaic_domains = self.params_hyper.mosaic_domains_diffuse
-        else:
-            mosaic_domains = self.params_hyper.mosaic_domains_bragg
-        self.SIM = get_SIM(whole_det, beam, cryst, pdbfile, defaultF=0,
-                           oversample=self.params_hyper.oversampling, mosaic_domains=mosaic_domains)
-        self.SIM.D.laue_group_num = get_laue_group_number(str(symmetry.space_group_info()))
-        self.SIM.D.stencil_size = 1
-        self._make_miller_lookup()  # make a dictionary for faster lookup
-        self.default_amp = np.median(self.SIM.crystal.miller_array.data())
-        self.SIM_noSF = get_SIM(whole_det, beam, cryst, pdbfile, defaultF=self.default_amp, SF=False,
-                                oversample=self.params_hyper.oversampling, mosaic_domains=mosaic_domains)
-        self.SIM_noSF.D.laue_group_num = get_laue_group_number(str(symmetry.space_group_info()))
-        self.SIM_noSF.D.stencil_size = 1
+        self.on_update_pdb(pdbfile, init=True)
 
-        self.xtal = self.SIM.crystal.dxtbx_crystal
-        self.ucell = self.xtal.get_unit_cell().parameters()
-        self.scaled_ucell = self.ucell
-        self.on_update_domain_size(skip_gen_image_data=True)
-        self.sg = self.xtal.get_space_group()
-        self._check_symmetry()
         self.SASE_sim = spectra_simulation()
         self.on_update_spectrum(init=True, new_pulse=True, skip_gen_image_data=True)
         self.on_update_diffuse_params(skip_gen_image_data=True)
@@ -497,41 +472,51 @@ class SimView(tk.Frame):
             "STATUS: " + new_status)
         root.update()
 
-    def on_update_pdb(self, pdbfile=None):
+    def instantiate_sims(self):
+        if self.params_cat.diffuse_mode == 'On':
+            mosaic_domains = self.params_hyper.mosaic_domains_diffuse
+        else:
+            mosaic_domains = self.params_hyper.mosaic_domains_bragg
+        self.SIM = get_SIM(whole_det, beam, self.cryst, self.pdbfile, defaultF=0,
+                           oversample=self.params_hyper.oversampling, mosaic_domains=mosaic_domains)
+        self.default_amp = np.median(self.SIM.crystal.miller_array.data())
+        self.SIM_noSF = get_SIM(whole_det, beam, self.cryst, self.pdbfile, defaultF=self.default_amp, SF=False,
+                                oversample=self.params_hyper.oversampling, mosaic_domains=mosaic_domains)
+        self.fix_diffBragg_instances()
+
+    def fix_diffBragg_instances(self):
+        for SIM in (self.SIM, self.SIM_noSF):
+            SIM.D.laue_group_num = self.laue_num
+            SIM.D.stencil_size = 1
+
+    def on_update_pdb(self, pdbfile, init=False):
         self._update_status("Loading new PDB model...")
+        self.pdbfile = pdbfile
         symmetry = extract_symmetry_from(pdbfile)
+        self.laue_num = get_laue_group_number(str(symmetry.space_group_info()))
         sg = str(symmetry.space_group_info())
         if sg == 'P 1':
             raise Exception("Triclinic cells not yet supported.")
         ucell = symmetry.unit_cell()
         fmat = matrix.sqr(ucell.fractionalization_matrix()).transpose()
-        cryst = Crystal(fmat, sg)
-        self.ori = cryst.get_U()
-        if self.params_cat.diffuse_mode == 'On':
-            mosaic_domains = self.params_hyper.mosaic_domains_diffuse
-        else:
-            mosaic_domains = self.params_hyper.mosaic_domains_bragg
-        self.SIM = get_SIM(whole_det, beam, cryst, pdbfile, defaultF=0,
-                           oversample=self.params_hyper.oversampling, mosaic_domains=mosaic_domains)
-        self.SIM.D.laue_group_num = get_laue_group_number(str(symmetry.space_group_info()))
-        self.SIM.D.stencil_size = 1
+        self.cryst = Crystal(fmat, sg)
+        self.ori = self.cryst.get_U()
+        self.instantiate_sims()
         self._make_miller_lookup()  # make a dictionary for faster lookup
-        self.default_amp = np.median(self.SIM.crystal.miller_array.data())
-        self.SIM_noSF = get_SIM(whole_det, beam, cryst, pdbfile, defaultF=self.default_amp, SF=False,
-                                oversample=self.params_hyper.oversampling, mosaic_domains=mosaic_domains)
-        self.SIM_noSF.D.laue_group_num = get_laue_group_number(str(symmetry.space_group_info()))
-        self.SIM_noSF.D.stencil_size = 1
         self.xtal = self.SIM.crystal.dxtbx_crystal
         self.ucell = self.xtal.get_unit_cell().parameters()
         self.scaled_ucell = self.ucell
-        for axis in ('a','b','c'):
-            self.params_num.get_param('ucell_scale_%s' % axis).reset(callbacks=False)
+        if not init:
+            for axis in ('a','b','c'):
+                self.params_num.get_param('ucell_scale_%s' % axis).reset(callbacks=False)
+        self.on_update_domain_size(skip_gen_image_data=True)
         self.sg = self.xtal.get_space_group()
         self._check_symmetry()
-        self._enforce_symmetry_on_controls()
-        self._generate_image_data()
-        self._update_ucell_label(update_sg=True)
-        self._randomize_orientation(reset=True)
+        if not init:
+            self._enforce_symmetry_on_controls()
+            self._generate_image_data()
+            self._update_ucell_label(update_sg=True)
+            self._randomize_orientation(reset=True)
 
     def _make_miller_lookup(self):
         self._update_status("Generating Miller lookup...")
@@ -743,7 +728,7 @@ class SimView(tk.Frame):
                 self._update_status("Failed to fetch requested PDB.")
                 return
             try:
-                self.on_update_pdb(pdbfile=pdbfile)
+                self.on_update_pdb(pdbfile)
             except Exception:
                 self._update_status("Failed to load requested PDB. Triclinic cells not yet supported.")
                 return
