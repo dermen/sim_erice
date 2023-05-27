@@ -1060,12 +1060,12 @@ class SimView(tk.Frame):
 
     def _big_step_up(self, tkevent):
         dial = self.params_num.current_param
-        dial.set_value(min(round(dial.get_value() + dial.bstep - dial.sstep, dial.decimals), dial.max), callbacks=False)
+        dial.set_value(min(round(dial.get_value() + dial.bstep - dial.sstep, dial.decimals), dial.max), callbacks=True)
         # adjust by small_step less than big_step because small_step already registered
 
     def _big_step_down(self, tkevent):
         dial = self.params_num.current_param
-        dial.set_value(max(round(dial.get_value() - dial.bstep + dial.sstep, dial.decimals), dial.min), callbacks=False)
+        dial.set_value(max(round(dial.get_value() - dial.bstep + dial.sstep, dial.decimals), dial.min), callbacks=True)
         # adjust by small_step less than big_step because small_step already registered
 
     def _reset(self, tkevent=None):
