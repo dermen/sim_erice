@@ -519,6 +519,7 @@ class SimView(tk.Frame):
         self._enforce_symmetry_on_controls()
         self._generate_image_data()
         self._update_ucell_label(update_sg=True)
+        self._randomize_orientation(reset=True)
 
     def _make_miller_lookup(self):
         self._update_status("Generating Miller lookup...")
