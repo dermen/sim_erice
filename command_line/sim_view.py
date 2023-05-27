@@ -129,8 +129,10 @@ class NumericalParam(object):
         self.f_ctrl.bind("<FocusOut>", self.deactivate)
     def make_command(self, extra_logic):
         def on_update_dial(tkevent=None):
-            self.activate()
+            self.disable()
             extra_logic()
+            self.enable()
+            self.activate()
         return on_update_dial
     def get_value(self):
         if hasattr(self, 'variable'):
@@ -322,7 +324,9 @@ class Button(object):
         self.button.grid(row=position[0], column=position[1],
                          sticky='n'+'s'+'e'+'w')
     def press(self):
+        self.disable()
         self.command()
+        self.enable()
     def enable(self):
         self.button.configure(state='normal')
     def disable(self):
