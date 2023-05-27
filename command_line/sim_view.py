@@ -786,15 +786,14 @@ class SimView(tk.Frame):
         else:
             for param in [self.params_num.diff_gamma, self.params_num.diff_sigma, self.params_num.diff_aniso]:
                 param.disable()
-            domains = self.params_hyper.mosaic_domains_diffuse
+            domains = self.params_hyper.mosaic_domains_bragg
             spread = 1 if domains > 1 else 0
         # update mosaic domains accd. to hyperparameters, distinct between diffuse and Bragg-only mode
         for SIM in (self.SIM, self.SIM_noSF):
             SIM.crystal.n_mos_domains = domains
-            SIM.D.mosaic_domains = domains
             SIM.crystal.mos_spread_deg = spread
-            SIM.D.mosaic_spread_deg = spread
-            # hopefully don't need to reinstantiate, but it's possible
+            SIM.instantiate_diffBragg(oversample=self.params_hyper.oversampling, device_Id=0, default_F=0)
+        self.fix_diffBragg_instances()
         if not skip_gen_image_data:
             self._generate_image_data()
 
