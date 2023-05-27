@@ -8,6 +8,10 @@ import libtbx.phil as phil
 
 sim_view_phil_scope = phil.parse(
     """
+    detector_dist = 100
+        .type = float
+        .expert_level=1
+        .help = Distance in mm from sample to detector.
     mosaic_domains_bragg = 100
         .type = int
         .expert_level=1
