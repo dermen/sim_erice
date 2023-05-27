@@ -92,12 +92,9 @@ def get_pfs(all_pid, all_fast, all_slow):
     pan_fast_slow = flex.size_t(pan_fast_slow)
     return pan_fast_slow
 
-def set_orientation(SIM, ori, ori_repr='xyz'):
-    if ori_repr == 'xyz':
-        SIM.crystal.dxtbx_crystal.set_U(ori)
-        SIM.D.Umatrix = ori
-    else:
-        raise NotImplementedError("can't handle orientation passed in this format yet.")
+def set_orientation(SIM, umat):
+    SIM.crystal.dxtbx_crystal.set_U(umat)
+    SIM.D.Umatrix = umat
 
 def randomize_orientation(SIM, track_with=None, reset=False):
     if reset:
@@ -111,20 +108,21 @@ def randomize_orientation(SIM, track_with=None, reset=False):
 
 def sweep(SIM, phi_start, phistep, osc_deg, *args, oversample=1, **kwargs):
     print("beginning sweep")
-    start_ori = SIM.crystal.dxtbx_crystal.get_U()
-    SIM.crystal.dxtbx_crystal.rotate_around_origin((0,-1,0), phi_start)
+    start_umat = sqr(SIM.D.Umatrix)
+    gonio = col((0, -1, 0))
+    rot_to_phi_start = gonio.axis_and_angle_as_r3_rotation_matrix(phi_start + phistep/2., deg=True)
+    set_orientation(SIM, rot_to_phi_start * start_umat)
     sum_pix = run_simdata(SIM, *args, **kwargs)
     n_steps = int(osc_deg/phistep)
-    for step in range(1, n_steps+1):
-        print("step {s} of {n}...".format(s=step, n=n_steps))
-        # hard code spindle axis for now
-        SIM.crystal.dxtbx_crystal.rotate_around_origin((0,-1,0), phistep)
-        SIM.instantiate_diffBragg(oversample=oversample, device_Id=0, default_F=0)
+    for step in range(n_steps):
+        print("step {s} of {n}...".format(s=step+1, n=n_steps))
+        rot_in_sweep = gonio.axis_and_angle_as_r3_rotation_matrix(phistep*step, deg=True)
+        set_orientation(SIM, rot_in_sweep * rot_to_phi_start * start_umat)
         pix = run_simdata(SIM, *args, **kwargs)
         sum_pix += pix
     # reset
     print("finished sweep; resetting crystal orientation")
-    SIM.crystal.dxtbx_crystal.set_U(start_ori)
+    set_orientation(SIM, start_umat)
     return sum_pix
 
 def run_simdata(SIM, pfs, ucell_p, ncells_p, rot_p, spectrum=None, eta_p=None, G=1,
