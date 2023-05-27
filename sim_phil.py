@@ -8,10 +8,15 @@ import libtbx.phil as phil
 
 sim_view_phil_scope = phil.parse(
     """
-    mosaic_domains = 100
+    mosaic_domains_bragg = 100
         .type = int
         .expert_level=1
-        .help = Number of rotation matrices to model in each simulation.
+        .help = Number of rotation matrices to model in each simulation
+        .help = for Bragg peaks.
+    mosaic_domains_diffuse = 10
+        .type = int
+        .expert_level=1
+        .help = Number of domains to model for diffuse scattering only.
     oversampling = 1
         .type = int
         .expert_level=1

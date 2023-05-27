@@ -436,12 +436,18 @@ class SimView(tk.Frame):
         self.panel.set_frame(fast, slow, offset_orig)
         self.beam_center = self.panel.get_beam_centre_px(self.s0)
 
-        self.SIM = get_SIM(whole_det, beam, cryst, pdbfile, defaultF=0, oversample=self.params_hyper.oversampling, mosaic_domains=self.params_hyper.mosaic_domains)
+        if self.params_cat.diffuse_mode == 'On':
+            mosaic_domains = self.params_hyper.mosaic_domains_diffuse
+        else:
+            mosaic_domains = self.params_hyper.mosaic_domains_bragg
+        self.SIM = get_SIM(whole_det, beam, cryst, pdbfile, defaultF=0,
+                           oversample=self.params_hyper.oversampling, mosaic_domains=mosaic_domains)
         self.SIM.D.laue_group_num = get_laue_group_number(str(symmetry.space_group_info()))
         self.SIM.D.stencil_size = 1
         self._make_miller_lookup()  # make a dictionary for faster lookup
         self.default_amp = np.median(self.SIM.crystal.miller_array.data())
-        self.SIM_noSF = get_SIM(whole_det, beam, cryst, pdbfile, defaultF=self.default_amp, SF=False, oversample=self.params_hyper.oversampling, mosaic_domains=self.params_hyper.mosaic_domains)
+        self.SIM_noSF = get_SIM(whole_det, beam, cryst, pdbfile, defaultF=self.default_amp, SF=False,
+                                oversample=self.params_hyper.oversampling, mosaic_domains=mosaic_domains)
         self.SIM_noSF.D.laue_group_num = get_laue_group_number(str(symmetry.space_group_info()))
         self.SIM_noSF.D.stencil_size = 1
 
@@ -501,12 +507,18 @@ class SimView(tk.Frame):
         fmat = matrix.sqr(ucell.fractionalization_matrix()).transpose()
         cryst = Crystal(fmat, sg)
         self.ori = cryst.get_U()
-        self.SIM = get_SIM(whole_det, beam, cryst, pdbfile, defaultF=0, oversample=self.params_hyper.oversampling, mosaic_domains=self.params_hyper.mosaic_domains)
+        if self.params_cat.diffuse_mode == 'On':
+            mosaic_domains = self.params_hyper.mosaic_domains_diffuse
+        else:
+            mosaic_domains = self.params_hyper.mosaic_domains_bragg
+        self.SIM = get_SIM(whole_det, beam, cryst, pdbfile, defaultF=0,
+                           oversample=self.params_hyper.oversampling, mosaic_domains=mosaic_domains)
         self.SIM.D.laue_group_num = get_laue_group_number(str(symmetry.space_group_info()))
         self.SIM.D.stencil_size = 1
         self._make_miller_lookup()  # make a dictionary for faster lookup
         self.default_amp = np.median(self.SIM.crystal.miller_array.data())
-        self.SIM_noSF = get_SIM(whole_det, beam, cryst, pdbfile, defaultF=self.default_amp, SF=False, oversample=self.params_hyper.oversampling, mosaic_domains=self.params_hyper.mosaic_domains)
+        self.SIM_noSF = get_SIM(whole_det, beam, cryst, pdbfile, defaultF=self.default_amp, SF=False,
+                                oversample=self.params_hyper.oversampling, mosaic_domains=mosaic_domains)
         self.SIM_noSF.D.laue_group_num = get_laue_group_number(str(symmetry.space_group_info()))
         self.SIM_noSF.D.stencil_size = 1
         self.xtal = self.SIM.crystal.dxtbx_crystal
@@ -783,10 +795,21 @@ class SimView(tk.Frame):
         if self.params_cat.diffuse_mode.get_value() == 'On':
             for param in [self.params_num.diff_gamma, self.params_num.diff_sigma, self.params_num.diff_aniso]:
                 param.enable()
+            domains = self.params_hyper.mosaic_domains_diffuse
+            spread = 1 if domains > 1 else 0
             self.on_update_diffuse_params()
         else:
             for param in [self.params_num.diff_gamma, self.params_num.diff_sigma, self.params_num.diff_aniso]:
                 param.disable()
+            domains = self.params_hyper.mosaic_domains_diffuse
+            spread = 1 if domains > 1 else 0
+        # update mosaic domains accd. to hyperparameters, distinct between diffuse and Bragg-only mode
+        for SIM in (self.SIM, self.SIM_noSF):
+            SIM.crystal.n_mos_domains = domains
+            SIM.D.mosaic_domains = domains
+            SIM.crystal.mos_spread_deg = spread
+            SIM.D.mosaic_spread_deg = spread
+            # hopefully don't need to reinstantiate, but it's possible
         if not skip_gen_image_data:
             self._generate_image_data()
 
