@@ -1,6 +1,12 @@
 # sim_erice
 
-Bragg simulation and model fitting frontend
+Bragg simulation and model fitting frontend.  Run the program at the command line with:
+
+```simtbx.sim_view```
+
+More details on which parameters are tunable is visible by typing:
+
+```simtbx.sim_view -c -e5 -a2```
 
 ## SimView: lightweight simulator and viewer for diffraction still images.
 
