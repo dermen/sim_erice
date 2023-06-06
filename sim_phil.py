@@ -38,5 +38,9 @@ sim_view_phil_scope = phil.parse(
         .help = Enable overriding default spectrum shape to monochromatic for
         .help = speed, critical when not using GPU, recommended when using
         .help = diffuse scattering.
+    context = *kokkos cuda cpu
+        .type = choice
+        .expert_level=3
+        .help = Backend for parallel execution.
     """, process_includes=True)
 

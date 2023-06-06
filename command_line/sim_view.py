@@ -1095,6 +1095,15 @@ if __name__ == '__main__':
                                               show_diff_phil=True)
     params_cat.spectrum_shape.default = params_hyper.spectrum_shape
 
+    if params_hyper.context == "kokkos":
+        os.environ["DIFFBRAGG_USE_KOKKOS"]="1"
+    else:
+        del os.environ["DIFFBRAGG_USE_KOKKOS"]
+    if params_hyper.context == "cuda":
+        os.environ["DIFFBRAGG_USE_CUDA"]="1"
+    else:
+        del os.environ["DIFFBRAGG_USE_CUDA"]
+
     from simtbx.diffBragg.device import DeviceWrapper
     with DeviceWrapper(0) as _:
         root = tk.Tk()
