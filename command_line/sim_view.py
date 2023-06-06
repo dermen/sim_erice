@@ -1097,11 +1097,11 @@ if __name__ == '__main__':
 
     if params_hyper.context == "kokkos":
         os.environ["DIFFBRAGG_USE_KOKKOS"]="1"
-    else:
+    elif "DIFFBRAGG_USE_KOKKOS" in os.environ:
         del os.environ["DIFFBRAGG_USE_KOKKOS"]
     if params_hyper.context == "cuda":
         os.environ["DIFFBRAGG_USE_CUDA"]="1"
-    else:
+    elif "DIFFBRAGG_USE_CUDA" in os.environ:
         del os.environ["DIFFBRAGG_USE_CUDA"]
 
     from simtbx.diffBragg.device import DeviceWrapper
