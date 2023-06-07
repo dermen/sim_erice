@@ -740,8 +740,8 @@ class SimView(tk.Frame):
             self.params_cat.spectrum_shape.disable()
             self.params_num.delta_phi.enable()
             self.params_num.image.enable()
-            self.gonio.append(self.ax.axvline(x=self.beam_center[0], ymin=0.01, ymax=0.1, color='y'))
-            self.gonio.append(self.ax.annotate('  Goniometer axis', self.beam_center, xytext=(self.beam_center[0], self.beam_center[1]+10), color='y'))
+            self.gonio.append(self.ax.axvline(x=self.beam_center[0], ymin=0.01, ymax=0.1, color='r'))
+            self.gonio.append(self.ax.annotate('  Goniometer axis', self.beam_center, xytext=(self.beam_center[0], self.beam_center[1]+10), color='r'))
         else:
             self.params_cat.spectrum_shape.enable()
             self.params_num.delta_phi.disable()
