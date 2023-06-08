@@ -818,7 +818,7 @@ class SimView(tk.Frame):
                 param.enable()
             domains = self.params_hyper.mosaic_domains_diffuse
             spread = 1 if domains > 1 else 0
-            self.on_update_diffuse_params()
+            self.on_update_diffuse_params(skip_gen_image_data=True)
         else:
             for param in [self.params_num.diff_gamma, self.params_num.diff_sigma, self.params_num.diff_aniso]:
                 param.disable()
