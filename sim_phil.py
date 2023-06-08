@@ -42,5 +42,9 @@ sim_view_phil_scope = phil.parse(
         .type = choice
         .expert_level=3
         .help = Backend for parallel execution.
+    high_visibility = False
+        .type = bool
+        .expert_level=0
+        .help = Increase font size and reduce panel width.
     """, process_includes=True)
 
