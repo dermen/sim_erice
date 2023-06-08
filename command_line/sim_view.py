@@ -93,7 +93,7 @@ class NumericalParam(object):
         self.bstep = big_step
         self.default = default
         self.formatter = formatter
-        self.decimals = int(math.log10(self.sstep)) # for rounding
+        self.decimals = -1*int(math.log10(self.sstep)-1) # for rounding
         self.units = units_string
         self.label = label
         self.position = position
