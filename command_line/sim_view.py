@@ -7,6 +7,9 @@ Generate and load simulated images on the fly
 Iris Young, idyoung@lbl.gov
 # LIBTBX_SET_DISPATCHER_NAME simtbx.sim_view
 """
+fontsz=20
+fontsz2=18
+PADY=4
 try:  # py2/3 compat 
     import Tkinter as tk
 except ImportError:
@@ -112,7 +115,7 @@ class NumericalParam(object):
             row, column = self.position
         self.frame.grid(row=row, column=column,
                         columnspan=self.columnspan,
-                        sticky='w', padx=6)
+                        sticky='w', padx=6, pady=PADY)
         self.f_label = tk.Label(self.frame, text=self.label)
         self.f_label.pack(side=tk.LEFT, padx=4)
         self.f_units = tk.Label(self.frame, text=self.units)
@@ -129,7 +132,8 @@ class NumericalParam(object):
                                  increment=self.sstep,
                                  command=self.command,
                                  format=self.formatter,
-                                 textvariable=self.variable)
+                                 textvariable=self.variable,
+                                 font=tk.font.Font(self.parent_frame.master, size=fontsz2))
         self.f_ctrl.pack(side=tk.RIGHT)
         self.f_ctrl.bind("<FocusIn>", self.activate)
         self.f_ctrl.bind("<FocusOut>", self.deactivate)
@@ -160,14 +164,14 @@ class NumericalParam(object):
     def activate(self, tkevent=None):
         if hasattr(self, 'is_active') and not self.is_active:
             for part in (self.f_label, self.f_units):
-                part.config(font='Helvetica %d bold' % (16 if self.hivis else 10), fg='blue')
+                part.config(font=tk.font.Font(self.parent_frame.master, size=fontsz), fg='blue')
             self.is_active = True
             self.f_ctrl.focus_set()
             if hasattr(self, 'handler') and not self.handler.current_param is self:
                 self.handler.set_active_param_by_object(self)
     def deactivate(self, tkevent=None):
         for part in (self.f_label, self.f_units):
-            part.config(font='Helvetica %d' % (16 if self.hivis else 10), fg='black')
+            part.config(font=tk.font.Font(self.parent_frame.master, size=fontsz), fg='black')
         self.is_active = False
 
 class CategoricalParam(NumericalParam):
@@ -187,7 +191,7 @@ class CategoricalParam(NumericalParam):
             row, column = self.position
         self.frame.grid(row=row, column=column,
                         columnspan=self.columnspan,
-                        sticky='w', padx=6)
+                        sticky='w', padx=6, pady=PADY)
         self.f_label = tk.Label(self.frame, text=self.label)
         self.f_label.pack(side=tk.LEFT, padx=4)
         self.variable = tk.StringVar()
@@ -216,7 +220,7 @@ class RadioParam(CategoricalParam):
             row, column = self.position
         self.frame.grid(row=row, column=column,
                         columnspan=self.columnspan,
-                        sticky='w', padx=6)
+                        sticky='w', padx=6, pady=PADY)
         self.f_label = tk.Label(self.frame, text=self.label)
         self.f_label.pack(side=tk.LEFT, padx=4)
         self.intvar = tk.IntVar()
@@ -260,14 +264,14 @@ class InfoParam(object):
         self.variable.set(self.info)
         self.f_info = tk.Message(self.parent_frame,
                                  textvariable=self.variable,
-                                 width=700)
+                                 width=900)
         if hivis:
             row, column = self.pos_hivis
         else:
             row, column = self.position
         self.f_info.grid(row=row, column=column,
                         columnspan=self.columnspan,
-                        sticky='w', padx=6)
+                        sticky='w', padx=6, pady=PADY)
     def set_value(self, new_info):
         if hasattr(self, "variable"):
             self.variable.set(new_info)
@@ -361,6 +365,7 @@ class TextEntry(object):
         self.pos_hivis = pos_hivis
         self.hivis = hivis
         self.master = master
+        self.parent_frame = master
         self.variable = tk.StringVar()
         self.variable.set(placeholder_text)
         self.frame = tk.Frame(parent_frame)
@@ -369,12 +374,13 @@ class TextEntry(object):
         else:
             row, column = self.position
         self.frame.grid(row=row, column=column,
-                        sticky='w', padx=6)
+                        sticky='w', padx=6, pady=PADY)
         self.f_label = tk.Label(self.frame, text=self.label)
         self.f_label.pack(side=tk.LEFT, padx=4)
         self.f_entry = tk.Entry(self.frame,
                                 textvariable=self.variable,
-                                validatecommand=validate_command)
+                                validatecommand=validate_command,
+                                font=tk.font.Font(self.parent_frame.master, size=fontsz2))
         self.f_entry.pack(side=tk.LEFT, padx=4)
         self.f_entry.bind("<FocusIn>", self.activate)
         self.f_entry.bind("<FocusOut>", self.deactivate)
@@ -398,13 +404,13 @@ class TextEntry(object):
         return update
     def activate(self, tkevent=None):
         if self.hivis:
-            self.f_label.config(font='Helvetica 16 bold', fg='blue')
+            self.f_label.config(font=tk.font.Font(self.parent_frame.master, size=fontsz), fg='blue')
         else:
             self.f_label.config(font='Helvetica 10 bold', fg='blue')
         self.is_active = True
     def deactivate(self, tkevent=None):
         if self.hivis:
-            self.f_label.config(font='Helvetica 16', fg='black')
+            self.f_label.config(font=tk.font.Font(self.parent_frame.master, size=fontsz), fg='black')
         else:
             self.f_label.config(font='Helvetica 10', fg='black')
         self.is_active = False
@@ -574,21 +580,21 @@ class SimView(tk.Frame):
         self._update_status("Setting visual defaults...")
         self.default_font = tk.font.nametofont("TkDefaultFont")
         if self.hivis_mode:
-            self.default_font.config(family="Helvetica", size=16)
+            self.default_font.config(size=fontsz)
         else:
             self.default_font.config(family="Helvetica", size=10)
         for categorical_option in self.params_cat.all_params:
             if hasattr(categorical_option, 'f_menu'):
                 menu = categorical_option.f_menu
                 formatter = menu.nametowidget(menu.menuname)
-                formatter.config(font=self.default_font)
+                #formatter.config(font=tk.font.Font(self.master, size=fontsz))
         for numerical_option in self.params_num.all_params:
             spinbox = numerical_option.f_ctrl
-            spinbox.config(font=self.default_font, width=5)
-        self.pdb_entry.f_label.config(font=self.default_font)
-        self.pdb_entry.f_entry.config(font=self.default_font)
-        for info_param in self.params_info.all_params:
-            info_param.f_info.config(font=self.default_font)
+            #spinbox.config(font=tk.font.Font(self.master, size=fontsz2), width=5)
+        #self.pdb_entry.f_label.config(font=tk.font.Font(self.master, size=fontsz))
+        #self.pdb_entry.f_entry.config(font=tk.font.Font(self.master, size=fontsz2))
+        #for info_param in self.params_info.all_params:
+        #    info_param.f_info.config(font=tk.font.Font(self.master, size=fontsz))
         self.params_num.activate_next()
 
     def _get_miller_index_at_mouse(self, x,y,rot_p):
