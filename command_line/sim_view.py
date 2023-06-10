@@ -101,8 +101,9 @@ class NumericalParam(object):
         self.columnspan = columnspan
         self.is_enabled = True
         self.is_active = False
-    def register_parent_frame(self, parent_frame):
+    def register_parent_frame(self, parent_frame, parent_object):
         self.parent_frame = parent_frame
+        self.parent_object = parent_object
     def generate_dial(self, extra_logic=lambda: None, hivis=False):
         self.frame = tk.Frame(self.parent_frame)
         self.hivis = hivis
@@ -112,7 +113,9 @@ class NumericalParam(object):
             row, column = self.position
         self.frame.grid(row=row, column=column,
                         columnspan=self.columnspan,
-                        sticky='w', padx=6)
+                        sticky='w',
+                        padx=self.parent_object.padx,
+                        pady=self.parent_object.pady)
         self.f_label = tk.Label(self.frame, text=self.label)
         self.f_label.pack(side=tk.LEFT, padx=4)
         self.f_units = tk.Label(self.frame, text=self.units)
@@ -129,7 +132,8 @@ class NumericalParam(object):
                                  increment=self.sstep,
                                  command=self.command,
                                  format=self.formatter,
-                                 textvariable=self.variable)
+                                 textvariable=self.variable,
+                                 font=self.parent_object.entry_font)
         self.f_ctrl.pack(side=tk.RIGHT)
         self.f_ctrl.bind("<FocusIn>", self.activate)
         self.f_ctrl.bind("<FocusOut>", self.deactivate)
@@ -160,14 +164,14 @@ class NumericalParam(object):
     def activate(self, tkevent=None):
         if hasattr(self, 'is_active') and not self.is_active:
             for part in (self.f_label, self.f_units):
-                part.config(font='Helvetica %d bold' % (16 if self.hivis else 10), fg='blue')
+                part.config(fg='blue')
             self.is_active = True
             self.f_ctrl.focus_set()
             if hasattr(self, 'handler') and not self.handler.current_param is self:
                 self.handler.set_active_param_by_object(self)
     def deactivate(self, tkevent=None):
         for part in (self.f_label, self.f_units):
-            part.config(font='Helvetica %d' % (16 if self.hivis else 10), fg='black')
+            part.config(fg='black')
         self.is_active = False
 
 class CategoricalParam(NumericalParam):
@@ -187,7 +191,9 @@ class CategoricalParam(NumericalParam):
             row, column = self.position
         self.frame.grid(row=row, column=column,
                         columnspan=self.columnspan,
-                        sticky='w', padx=6)
+                        sticky='w',
+                        padx=self.parent_object.padx,
+                        pady=self.parent_object.pady)
         self.f_label = tk.Label(self.frame, text=self.label)
         self.f_label.pack(side=tk.LEFT, padx=4)
         self.variable = tk.StringVar()
@@ -216,7 +222,9 @@ class RadioParam(CategoricalParam):
             row, column = self.position
         self.frame.grid(row=row, column=column,
                         columnspan=self.columnspan,
-                        sticky='w', padx=6)
+                        sticky='w',
+                        padx=self.parent_object.padx,
+                        pady=self.parent_object.pady)
         self.f_label = tk.Label(self.frame, text=self.label)
         self.f_label.pack(side=tk.LEFT, padx=4)
         self.intvar = tk.IntVar()
@@ -253,21 +261,24 @@ class InfoParam(object):
         self.position = position
         self.pos_hivis = pos_hivis
         self.columnspan = columnspan
-    def register_parent_frame(self, parent_frame):
+    def register_parent_frame(self, parent_frame, parent_object):
         self.parent_frame = parent_frame
+        self.parent_object = parent_object
     def generate_info(self, hivis=False):
         self.variable = tk.StringVar()
         self.variable.set(self.info)
-        self.f_info = tk.Message(self.parent_frame,
-                                 textvariable=self.variable,
-                                 width=1200)
         if hivis:
             row, column = self.pos_hivis
         else:
             row, column = self.position
+        self.f_info = tk.Message(self.parent_frame,
+                                 textvariable=self.variable,
+                                 width=1200)
         self.f_info.grid(row=row, column=column,
-                        columnspan=self.columnspan,
-                        sticky='w', padx=6)
+                         columnspan=self.columnspan,
+                         sticky='w',
+                         padx=self.parent_object.padx,
+                         pady=self.parent_object.pady)
     def set_value(self, new_info):
         if hasattr(self, "variable"):
             self.variable.set(new_info)
@@ -282,9 +293,9 @@ class ParamsHandler(object):
             self.all_params.append(value)
         self.current_param_name = None
         self.current_param = None
-    def all_register_parent_frame(self, parent_frame):
+    def all_register_parent_frame(self, parent_frame, parent_object):
         for param in self.all_params:
-            param.register_parent_frame(parent_frame)
+            param.register_parent_frame(parent_frame, parent_object)
     def all_register_handler(self):
         for param in self.all_params:
             param.handler = self
@@ -336,13 +347,13 @@ class ParamsHandler(object):
         self.activate_next(direction=-1)
 
 class Button(object):
-    def __init__(self, parent_frame, command, label, position, pos_hivis=None, hivis=False):
+    def __init__(self, parent_frame, parent_object, command, label, position, pos_hivis=None, hivis=False):
         self.command = command
-        self.button = tk.Button(parent_frame, command=command, text=label)
         if hivis:
             row, column = pos_hivis
         else:
             row, column = position
+        self.button = tk.Button(parent_frame, command=command, text=label)
         self.button.grid(row=row, column=column,
                          sticky='n'+'s'+'e'+'w')
     def press(self):
@@ -353,28 +364,32 @@ class Button(object):
         self.button.configure(state='disabled')
 
 class TextEntry(object):
-    def __init__(self, parent_frame, command, validate_command, label, placeholder_text, position, pos_hivis=None, hivis=False, master=None):
+    def __init__(self, parent_frame, parent_object, command, validate_command, label, placeholder_text, position, pos_hivis, hivis=False):
         self.command = self.make_command(command)
         self.validate_command = validate_command
         self.label = label
         self.position = position
         self.pos_hivis = pos_hivis
         self.hivis = hivis
-        self.master = master
+        self.parent_frame = parent_frame
+        self.parent_object = parent_object
         self.variable = tk.StringVar()
         self.variable.set(placeholder_text)
-        self.frame = tk.Frame(parent_frame)
+        self.frame = tk.Frame(self.parent_frame)
         if hivis:
             row, column = self.pos_hivis
         else:
             row, column = self.position
         self.frame.grid(row=row, column=column,
-                        sticky='w', padx=6)
+                        sticky='w',
+                        padx=self.parent_object.padx,
+                        pady=self.parent_object.pady)
         self.f_label = tk.Label(self.frame, text=self.label)
         self.f_label.pack(side=tk.LEFT, padx=4)
         self.f_entry = tk.Entry(self.frame,
                                 textvariable=self.variable,
-                                validatecommand=validate_command)
+                                validatecommand=validate_command,
+                                font=self.parent_object.entry_font)
         self.f_entry.pack(side=tk.LEFT, padx=4)
         self.f_entry.bind("<FocusIn>", self.activate)
         self.f_entry.bind("<FocusOut>", self.deactivate)
@@ -397,16 +412,10 @@ class TextEntry(object):
                 raise(e)
         return update
     def activate(self, tkevent=None):
-        if self.hivis:
-            self.f_label.config(font='Helvetica 16 bold', fg='blue')
-        else:
-            self.f_label.config(font='Helvetica 10 bold', fg='blue')
+        self.f_label.config(fg='blue')
         self.is_active = True
     def deactivate(self, tkevent=None):
-        if self.hivis:
-            self.f_label.config(font='Helvetica 16', fg='black')
-        else:
-            self.f_label.config(font='Helvetica 10', fg='black')
+        self.f_label.config(fg='black')
         self.is_active = False
 
 params_num = ParamsHandler({
@@ -454,6 +463,19 @@ class SimView(tk.Frame):
         self.params_info = params_info
         self.params_hyper = params_hyper
         self.hivis_mode = self.params_hyper.high_visibility
+        self.default_font = tk.font.nametofont("TkDefaultFont")
+        size = self.default_font.cget('size')
+        if self.hivis_mode:
+            self.default_font.config(size=20)
+            self.label_font = tk.font.Font(self.master, size=20)
+            self.entry_font = tk.font.Font(self.master, size=18)
+            self.padx = 6
+            self.pady = 4
+        else:
+            self.label_font = tk.font.Font(self.master, size=size)
+            self.entry_font = tk.font.Font(self.master, size=size)
+            self.padx = 6
+            self.pady = 0
 
         self.panel = whole_det[0]
         self.s0 = beam.get_unit_s0()
@@ -572,24 +594,11 @@ class SimView(tk.Frame):
     def _set_visual_defaults(self):
         """set defaults for font, size, layout, etc."""
         self._update_status("Setting visual defaults...")
-        self.default_font = tk.font.nametofont("TkDefaultFont")
-        if self.hivis_mode:
-            self.default_font.config(family="Helvetica", size=16)
-        else:
-            self.default_font.config(family="Helvetica", size=10)
         for categorical_option in self.params_cat.all_params:
             if hasattr(categorical_option, 'f_menu'):
                 menu = categorical_option.f_menu
                 formatter = menu.nametowidget(menu.menuname)
-                formatter.config(font=self.default_font)
-        for numerical_option in self.params_num.all_params:
-            spinbox = numerical_option.f_ctrl
-            spinbox.config(font=self.default_font, width=5)
-        self.pdb_entry.f_label.config(font=self.default_font)
-        self.pdb_entry.f_entry.config(font=self.default_font)
-        for info_param in self.params_info.all_params:
-            info_param.f_info.config(font=self.default_font)
-        self.params_num.activate_next()
+                formatter.config(font=self.label_font)
 
     def _get_miller_index_at_mouse(self, x,y,rot_p):
         t = time.time()
@@ -697,11 +706,11 @@ class SimView(tk.Frame):
         """create an option menu for selecting params"""
         _options_frame = tk.Frame(self.master)
         _options_frame.pack(side=tk.TOP, expand=tk.NO)
-        self.params_num.all_register_parent_frame(_options_frame)
+        self.params_num.all_register_parent_frame(_options_frame, self)
         self.params_num.all_register_handler()
-        self.params_cat.all_register_parent_frame(_options_frame)
+        self.params_cat.all_register_parent_frame(_options_frame, self)
         self.params_cat.all_register_handler()
-        self.params_info.all_register_parent_frame(_options_frame)
+        self.params_info.all_register_parent_frame(_options_frame, self)
         self.params_info.all_register_handler()
 
         def get_extra_dial_logic(dial_name):
@@ -744,11 +753,11 @@ class SimView(tk.Frame):
             self.params_info.get_param(info_name).generate_info(hivis=self.hivis_mode)
 
         # Buttons
-        self.new_pulse_button=Button(_options_frame, command=self.on_new_pulse, label="New XFEL pulse", position=(4,6), pos_hivis=(5,2), hivis=self.hivis_mode)
-        self.randomize_orientation_button=Button(_options_frame, command=self._randomize_orientation, label="Randomize orientation", position=(2,4), pos_hivis=(7,0), hivis=self.hivis_mode)
-        self.update_ref_image_button=Button(_options_frame, command=self._update_pinned, label="Update pinned image", position=(0,5), pos_hivis=(6,2), hivis=self.hivis_mode)
-        self.reset_all_button=Button(_options_frame, command=self._reset_all, label="Reset all", position=(0,6), pos_hivis=(7,2), hivis=self.hivis_mode)
-        #self.pdb_set_trace_button=Button(_options_frame, command=self._set_trace, label="Enter debugger", position=(5,6), pos_hivis=(7,3), hivis=self.hivis_mode)
+        self.new_pulse_button=Button(_options_frame, self, command=self.on_new_pulse, label="New XFEL pulse", position=(4,6), pos_hivis=(5,2), hivis=self.hivis_mode)
+        self.randomize_orientation_button=Button(_options_frame, self, command=self._randomize_orientation, label="Randomize orientation", position=(2,4), pos_hivis=(7,0), hivis=self.hivis_mode)
+        self.update_ref_image_button=Button(_options_frame, self, command=self._update_pinned, label="Update pinned image", position=(0,5), pos_hivis=(6,2), hivis=self.hivis_mode)
+        self.reset_all_button=Button(_options_frame, self, command=self._reset_all, label="Reset all", position=(0,6), pos_hivis=(7,2), hivis=self.hivis_mode)
+        #self.pdb_set_trace_button=Button(_options_frame, self, command=self._set_trace, label="Enter debugger", position=(5,6), pos_hivis=(7,3), hivis=self.hivis_mode)
 
         # Text Entry
         def validate(text):
@@ -768,7 +777,7 @@ class SimView(tk.Frame):
             except Exception:
                 self._update_status("Failed to load requested PDB. Triclinic cells not yet supported.")
                 return
-        self.pdb_entry = TextEntry(_options_frame, command=fetch, validate_command=validate, label="PDB ID:", placeholder_text="4bs7", position=(5,1), pos_hivis=(0,3), hivis=self.hivis_mode, master=self)
+        self.pdb_entry = TextEntry(_options_frame, self, command=fetch, validate_command=validate, label="PDB ID:", placeholder_text="4bs7", position=(5,1), pos_hivis=(0,3), hivis=self.hivis_mode)
 
     def on_toggle_rotation_mode(self, new_mode=None, update_selection=False, skip_gen_image_data=False):
         """enforce monochromatic beam, hide/show rotation specific params"""
