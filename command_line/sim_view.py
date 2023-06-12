@@ -147,6 +147,10 @@ class NumericalParam(object):
         self.variable.set(new_value)
         if callbacks:
             self.command()
+    def set_small_steps(self):
+        self.f_ctrl["increment"] = self.sstep
+    def set_big_steps(self):
+        self.f_ctrl["increment"] = self.bstep
     def reset(self, callbacks=True):
         self.set_value(self.default, callbacks=callbacks)
     def enable(self):
@@ -334,6 +338,12 @@ class ParamsHandler(object):
             self.current_param.activate()
     def activate_previous(self):
         self.activate_next(direction=-1)
+    def set_small_steps(self):
+        for param in self.all_params:
+            param.set_small_steps()
+    def set_big_steps(self):
+        for param in self.all_params:
+            param.set_big_steps()
 
 class Button(object):
     def __init__(self, parent_frame, command, label, position, pos_hivis=None, hivis=False):
@@ -1053,8 +1063,10 @@ class SimView(tk.Frame):
 
     def bind(self):
         """key bindings"""
-        self.master.bind_all("<Shift-Up>", self._big_step_up) # increase this parameter a lot
-        self.master.bind_all("<Shift-Down>", self._big_step_down) # decrease this parameter a lot
+        # increment or decrement by big steps iff Shift key is held
+        self.master.bind_all("<KeyPress-Shift_L>", self._set_big_steps_on_shift)
+        self.master.bind_all("<KeyPress-Shift_R>", self._set_big_steps_on_shift)
+        self.master.bind_all("<KeyRelease>", self._set_small_steps_on_release_shift)
         #self.master.bind_all("<R>", self._reset)  # reset this dial to default value
         #self.master.bind_all("<Shift-R>", self._reset_all) # reset all controls to default settings
         #self.master.bind_all("<space>", self.on_new_pulse) # repeat the simulation with a new spectrum
@@ -1078,15 +1090,14 @@ class SimView(tk.Frame):
         self.params_num.set_active_param_by_name(new_dial_name)
         self._display()
 
-    def _big_step_up(self, tkevent):
-        dial = self.params_num.current_param
-        dial.set_value(min(round(dial.get_value() + dial.bstep - dial.sstep, dial.decimals), dial.max), callbacks=True)
-        # adjust by small_step less than big_step because small_step already registered
+    def _set_big_steps_on_shift(self, tkevent):
+        #print("registered Shift keypress")
+        self.params_num.set_big_steps()
 
-    def _big_step_down(self, tkevent):
-        dial = self.params_num.current_param
-        dial.set_value(max(round(dial.get_value() - dial.bstep + dial.sstep, dial.decimals), dial.min), callbacks=True)
-        # adjust by small_step less than big_step because small_step already registered
+    def _set_small_steps_on_release_shift(self, tkevent):
+        if tkevent.keysym == 'Caps_Lock': # seemingly the only way to capture releasing the shift key
+            #print("Shift key released")
+            self.params_num.set_small_steps()
 
     def _reset(self, tkevent=None):
         self._update_status("Resetting parameter(s)...")
