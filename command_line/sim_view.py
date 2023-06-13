@@ -1095,7 +1095,7 @@ class SimView(tk.Frame):
         self.params_num.set_big_steps()
 
     def _set_small_steps_on_release_shift(self, tkevent):
-        if tkevent.keysym == 'Caps_Lock': # seemingly the only way to capture releasing the shift key
+        if tkevent.keysym in ['Caps_Lock', 'Shift_L', 'Shift_R']:
             #print("Shift key released")
             self.params_num.set_small_steps()
 
