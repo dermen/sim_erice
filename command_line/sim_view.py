@@ -469,7 +469,7 @@ class SimView(tk.Frame):
         self.s0 = beam.get_unit_s0()
         fast = self.panel.get_fast_axis()
         slow = self.panel.get_slow_axis()
-        offset_orig = (2, -24, -1*self.params_hyper.detector_dist)
+        offset_orig = (2, -24, -1*self.params_hyper.detector_distance)
         self.panel.set_frame(fast, slow, offset_orig)
         self.beam_center = self.panel.get_beam_centre_px(self.s0)
 

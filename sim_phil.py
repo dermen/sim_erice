@@ -8,7 +8,7 @@ import libtbx.phil as phil
 
 sim_view_phil_scope = phil.parse(
     """
-    detector_dist = 100
+    detector_distance = 100
         .type = float
         .expert_level=1
         .help = "Distance in mm from sample to detector."
