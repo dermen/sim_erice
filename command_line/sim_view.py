@@ -41,8 +41,16 @@ from random import randint
 import time
 from simtbx.diffBragg.utils import ENERGY_CONV, get_laue_group_number
 
+usage="""Usage: libtbx.python sim_view.py [--help] [--config] [--file pdb_filename|--fetch pdbid] [phil_params]
+
+To display the full set of available parameters, use the --config (-c) flag.
+To display a comprehensive explanation of the simulator, use the --help (-h) flag.
+A model file can be passed with the --file flag instead of the default model, or a model may be fetched from the PDB by supplying the PDB ID after the --fetch flag.
+"""
+
 help_message="""SimView: lightweight simulator and viewer for diffraction still images.
 
+%s
 Run without any arguments, this program simulates diffraction of a small lysozyme crystal. You may ask the viewer to fetch a different model by entering that PDB ID in the associated text box.
 
 Diffraction from your crystal will be simulated with a set of default parameters for mosaic block size, beam energy and bandpass, etc. that you can change by adjusting each of the dials. Parameters to be adjusted can be selected either with the visual controls or with keyboard shortcuts. Numerical visual controls are made "active" by clicking in the text box or pressing their up or down arrows. The active control is labeled in bold, blue text. The keyboard will also route input to the active control by interpreting a keyboard "up arrow" keypress as the visible "up arrow" button, and the same for the "down arrow". For finer control, you may also enter text directly into the text box. The GUI will respond to new text input only after you press enter. In summary, keyboard shortcuts are as follows:
@@ -63,7 +71,7 @@ Brightness: the overall image scale, which governs the minimum intensity value t
 
 Display mode: either "Simulation only" to display a single simulation in cyan, or "Overlay with pinned" to also display a second simulation in the red channel of the same image, generating grayscale where they perfectly match. This can be used to emphasize and explore the effects of changing parameters, by "pinning" a simulation (using the "Update pinned image" button) and then adjusting a parameter.
 
-Unit cell a, b, c: a, b and c are the unit cell axis lengths, and we expose fractional scaling parameters for each of these to simulate e.g. a 10% larger unit cell in the b axis when setting b_scale to 1.1 -- you should be able to see both the fractional scales in the controls and the resulting cell parameters in the static text to their right. Depending on the symmetry of the crystal, these may all vary independently or may be constrained to scale together, in which case not all unit cell scale controls will be enabled. Larger unit cells produce constructive and destructive interference at smaller angles, resulting in more closely spaced Bragg peaks on the detector.
+Unit cell a, b, c: a, b and c are the unit cell axis lengths, and we expose fractional scaling parameters for each of these to simulate e.g. a 10%% larger unit cell in the b axis when setting b_scale to 1.1 -- you should be able to see both the fractional scales in the controls and the resulting cell parameters in the static text to their right. Depending on the symmetry of the crystal, these may all vary independently or may be constrained to scale together, in which case not all unit cell scale controls will be enabled. Larger unit cells produce constructive and destructive interference at smaller angles, resulting in more closely spaced Bragg peaks on the detector.
 
 Missetting angles: in serial crystallography, we are often faced with differences between the true orientation of the crystal and what is determined during indexing. A misorientation of the X or Y axis means a misestimation of which spots are in diffracting conditions, and will affect which spots (or how much of the spots) appear on the detector. Since the Z axis is along the beam direction, misorientation in Z results in rotation of the entire diffraction pattern. In the simulation viewer we expose these misorientations as rotations in x, y and z separately from the crystal orientation matrix which can be updated to a new, random orientation with the "Randomize orientation" button.
 
@@ -82,7 +90,7 @@ Diff_gamma and diff_sigma: parameters describing the diffuse scattering signal p
 Diff_aniso: anisotropic quality to the diffuse scattering. This is arbitrarily assigned directionality, and the adjustible parameter controls the degree to which this effect is observed.
 
 Further notes on the image viewer: matplotlib enables zooming and panning of the figure. We have also added pixel-specific information to the annotation text displayed in the lower right corner, such as the fractional Miller index and resolution at a given position on the detector.
-"""
+""" % usage
 
 class NumericalParam(object):
     def __init__(self, min, max, small_step, big_step, default,
@@ -1118,6 +1126,8 @@ if __name__ == '__main__':
     if "-h" in sys.argv or "--help" in sys.argv:
         print(help_message)
         exit()
+    if "--config" in sys.argv:
+        sys.argv.append("-c") # to recognize --config
     if "--fetch" in sys.argv:
         pos = sys.argv.index("--fetch")
         sys.argv.pop(pos)
@@ -1139,7 +1149,7 @@ if __name__ == '__main__':
         print("Could not load model file. Please supply a valid PDB model with the --file flag or a PDB ID with the --fetch flag.")
         exit()
     parser = ArgumentParser(
-        usage=help_message,
+        usage=usage,
         phil=sim_view_phil_scope
         )
     params_hyper, options = parser.parse_args(args=sys.argv[1:],
