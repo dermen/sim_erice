@@ -1128,6 +1128,12 @@ if __name__ == '__main__':
         exit()
     if "--config" in sys.argv:
         sys.argv.append("-c") # to recognize --config
+    if "-c" in sys.argv:
+        # default -c -e5 -a2 for this program
+        if not [arg for arg in sys.argv if arg.startswith("-e")]:
+            sys.argv.append("-e5")
+        if not [arg for arg in sys.argv if arg.startswith("-a")]:
+            sys.argv.append("-a2")
     if "--fetch" in sys.argv:
         pos = sys.argv.index("--fetch")
         sys.argv.pop(pos)
