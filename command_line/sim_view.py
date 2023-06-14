@@ -1154,7 +1154,7 @@ if __name__ == '__main__':
         pdbfile = libtbx.env.find_in_repositories(
             relative_path="sim_erice/4bs7.pdb",
             test=os.path.isfile)
-    if not pdbfile:
+    if not os.path.exists(pdbfile):
         print("Could not load model file. Please supply a valid PDB model with the --file flag or a PDB ID with the --fetch flag.")
         exit()
     parser = ArgumentParser(
