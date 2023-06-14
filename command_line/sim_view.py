@@ -1134,6 +1134,8 @@ if __name__ == '__main__':
             sys.argv.append("-e5")
         if not [arg for arg in sys.argv if arg.startswith("-a")]:
             sys.argv.append("-a2")
+    else:
+        print(usage)
     if "--fetch" in sys.argv:
         pos = sys.argv.index("--fetch")
         sys.argv.pop(pos)
