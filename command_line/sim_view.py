@@ -786,7 +786,8 @@ class SimView(tk.Frame):
             except Exception:
                 self._update_status("Failed to load requested PDB. Triclinic cells not yet supported.")
                 return
-        self.pdb_entry = TextEntry(_options_frame, command=fetch, validate_command=validate, label="PDB ID:", placeholder_text="4bs7", position=(5,1), pos_hivis=(0,3), hivis=self.hivis_mode, master=self)
+        pdbname = os.path.splitext(os.path.basename(self.pdbfile))[0]
+        self.pdb_entry = TextEntry(_options_frame, command=fetch, validate_command=validate, label="PDB ID:", placeholder_text=pdbname, position=(5,1), pos_hivis=(0,3), hivis=self.hivis_mode, master=self)
 
     def on_toggle_rotation_mode(self, new_mode=None, update_selection=False, skip_gen_image_data=False):
         """enforce monochromatic beam, hide/show rotation specific params"""
