@@ -1186,7 +1186,9 @@ if __name__ == '__main__':
         
         root.title("SimView")
         
-        root.geometry('1920x1140')
+        wd = int(root.winfo_screenwidth()*.8)
+        ht = int(root.winfo_screenheight()*.8)
+        root.geometry('%dx%d' % (wd, ht))
         
         frame = SimView(root, params_num, params_cat, params_info, params_hyper, pdbfile)
         
