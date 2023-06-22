@@ -160,6 +160,7 @@ def run_simdata(SIM, pfs, ucell_p, ncells_p, rot_p, spectrum=None, eta_p=None, G
     """
 
 
+    SIM.D.verbose = 0
     if spectrum is not None:
         SIM.beam.spectrum = spectrum
         SIM.D.xray_beams = SIM.beam.xray_beams
@@ -200,6 +201,7 @@ def run_simdata(SIM, pfs, ucell_p, ncells_p, rot_p, spectrum=None, eta_p=None, G
     npix = int(len(pfs)/3)
     SIM.D.verbose = 1
     SIM.D.add_diffBragg_spots(pfs)
+    SIM.D.verbose = 0
 
     pix = G*SIM.D.raw_pixels_roi[:npix]
 
