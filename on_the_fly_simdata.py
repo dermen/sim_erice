@@ -6,7 +6,7 @@ import scitbx
 from scitbx.matrix import col, sqr
 from math import sin, cos
 import numpy as np
-from dials.array_family import flex
+from scitbx.array_family import flex
 
 mersenne_twister = flex.mersenne_twister(seed=32)
 

@@ -35,7 +35,6 @@ from dxtbx_model_ext import Crystal
 from dials.util.options import ArgumentParser
 from scitbx import matrix
 from scitbx.math import gaussian, euler_angles
-from dials.array_family import flex
 from libtbx import easy_pickle
 from random import randint
 import time
@@ -1124,7 +1123,7 @@ class SimView(tk.Frame):
         self._update_ucell_label()
         self._generate_image_data()
 
-if __name__ == '__main__':
+def main():
     import sys
     if "-h" in sys.argv or "--help" in sys.argv:
         print(help_message)
@@ -1156,6 +1155,8 @@ if __name__ == '__main__':
         pdbfile = libtbx.env.find_in_repositories(
             relative_path="sim_erice/4bs7.pdb",
             test=os.path.isfile)
+        if pdbfile is None:
+            pdbfile = os.path.join(os.path.dirname(__file__), "../4bs7.pdb")
     if not os.path.exists(pdbfile):
         print("Could not load model file. Please supply a valid PDB model with the --file flag or a PDB ID with the --fetch flag.")
         exit()
@@ -1193,4 +1194,7 @@ if __name__ == '__main__':
         frame.pack( side=tk.TOP, expand=tk.NO)
         root.mainloop()
 #
+
+if __name__ == '__main__':
+    main()
 
